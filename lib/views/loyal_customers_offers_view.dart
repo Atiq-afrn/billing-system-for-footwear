@@ -43,12 +43,13 @@ class _LoyalCustomersOffersViewState extends State<LoyalCustomersOffersView> wit
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E3A8A),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
+        scrolledUnderElevation: 0,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -58,7 +59,7 @@ class _LoyalCustomersOffersViewState extends State<LoyalCustomersOffersView> wit
             const Text(
               'Loyal Customer & Offers',
               style: TextStyle(
-                color: Colors.white,
+                color: Color(0xFF0F172A),
                 fontWeight: FontWeight.w900,
                 fontSize: 17,
                 letterSpacing: -0.2,
@@ -67,7 +68,7 @@ class _LoyalCustomersOffersViewState extends State<LoyalCustomersOffersView> wit
             Text(
               '${vm.companyName} • Loyalty Program',
               style: const TextStyle(
-                color: Colors.white70,
+                color: Color(0xFF64748B),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -77,12 +78,12 @@ class _LoyalCustomersOffersViewState extends State<LoyalCustomersOffersView> wit
         actions: [
           IconButton(
             tooltip: 'Create New Offer',
-            icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF0F172A)),
             onPressed: () => _openCreateOfferSheet(context),
           ),
           IconButton(
             tooltip: 'Loyalty Settings',
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            icon: const Icon(Icons.settings_outlined, color: Color(0xFF0F172A)),
             onPressed: () => _tabController.animateTo(2),
           ),
           const SizedBox(width: 4),
@@ -93,6 +94,8 @@ class _LoyalCustomersOffersViewState extends State<LoyalCustomersOffersView> wit
             color: Colors.white,
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: const Color(0xFF1E3A8A),
               unselectedLabelColor: const Color(0xFF64748B),
               indicatorColor: const Color(0xFF1E3A8A),
@@ -562,7 +565,18 @@ class _LoyalCustomersOffersViewState extends State<LoyalCustomersOffersView> wit
                           customer: profile.customer,
                           viewModel: vm,
                           onPreviewPdf: (bill) {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => PdfPreviewView(bill: bill)));
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PdfPreviewView(
+                                  bill: bill,
+                                  companyName: vm.companyName,
+                                  companyAddress: vm.currentCompanyProfile.address,
+                                  companyMobile: vm.currentCompanyProfile.mobile,
+                                  upiId: vm.upiId,
+                                ),
+                              ),
+                            );
                           },
                           onShare: (bill) => vm.sendBillWhatsApp(bill),
                         ),

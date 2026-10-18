@@ -21,24 +21,47 @@ class SqliteShopRepository implements ShopRepository {
 
   String get _currentCompanyId => companyIdProvider?.call() ?? 'comp_ayesha_footwear';
 
+  String _whereCompany([String? prefix]) {
+    final col = prefix != null ? '$prefix.company_id' : 'company_id';
+    if (_currentCompanyId == 'comp_ayesha_footwear') {
+      return "($col = ? OR $col IS NULL OR $col = '')";
+    }
+    return '$col = ?';
+  }
+
   @override
   Future<List<Product>> fetchProducts() async {
     final db = await _databaseService.database;
-    final rows = await db.query('products', orderBy: 'name COLLATE NOCASE ASC');
+    final rows = await db.query(
+      'products',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'name COLLATE NOCASE ASC',
+    );
     return rows.map(Product.fromMap).toList();
   }
 
   @override
   Future<List<Customer>> fetchCustomers() async {
     final db = await _databaseService.database;
-    final rows = await db.query('customers', orderBy: 'name COLLATE NOCASE ASC');
+    final rows = await db.query(
+      'customers',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'name COLLATE NOCASE ASC',
+    );
     return rows.map(Customer.fromMap).toList();
   }
 
   @override
   Future<List<Bill>> fetchBills() async {
     final db = await _databaseService.database;
-    final rows = await db.query('bills', orderBy: 'created_at DESC');
+    final rows = await db.query(
+      'bills',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'created_at DESC',
+    );
     return rows.map(Bill.fromMap).toList();
   }
 
@@ -54,8 +77,12 @@ class SqliteShopRepository implements ShopRepository {
       sizes: draft.sizes,
       colors: draft.colors,
       imagePath: draft.imagePath,
+      imageBase64: draft.imageBase64,
     );
-    await db.insert('products', product.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+
+    final map = Map<String, dynamic>.from(product.toMap());
+    map['company_id'] = _currentCompanyId;
+    await db.insert('products', map, conflictAlgorithm: ConflictAlgorithm.replace);
 
     // Initial stock movement record
     if (draft.stock > 0) {
@@ -69,7 +96,9 @@ class SqliteShopRepository implements ShopRepository {
         createdAt: DateTime.now(),
         note: 'Initial catalog stock addition',
       );
-      await db.insert('stock_movements', movement.toMap());
+      final mMap = Map<String, dynamic>.from(movement.toMap());
+      mMap['company_id'] = _currentCompanyId;
+      await db.insert('stock_movements', mMap);
       CloudSyncService.instance.pushStockMovement(_currentCompanyId, movement);
     }
 
@@ -82,16 +111,21 @@ class SqliteShopRepository implements ShopRepository {
   @override
   Future<void> updateProductStock(String productId, int newStock) async {
     final db = await _databaseService.database;
-    final productRows = await db.query('products', where: 'id = ?', whereArgs: [productId], limit: 1);
+    final productRows = await db.query(
+      'products',
+      where: 'id = ? AND ${_whereCompany()}',
+      whereArgs: [productId, _currentCompanyId],
+      limit: 1,
+    );
     final oldStock = productRows.isNotEmpty ? ((productRows.first['stock'] as num?)?.toInt() ?? 0) : 0;
     final productName = productRows.isNotEmpty ? (productRows.first['name'] as String? ?? 'Product') : 'Product';
 
     final validStock = newStock < 0 ? 0 : newStock;
     await db.update(
       'products',
-      {'stock': validStock},
-      where: 'id = ?',
-      whereArgs: [productId],
+      {'stock': validStock, 'company_id': _currentCompanyId},
+      where: 'id = ? AND ${_whereCompany()}',
+      whereArgs: [productId, _currentCompanyId],
     );
 
     final diff = validStock - oldStock;
@@ -106,7 +140,9 @@ class SqliteShopRepository implements ShopRepository {
         createdAt: DateTime.now(),
         note: 'Manual stock inventory restock / correction',
       );
-      await db.insert('stock_movements', movement.toMap());
+      final mMap = Map<String, dynamic>.from(movement.toMap());
+      mMap['company_id'] = _currentCompanyId;
+      await db.insert('stock_movements', mMap);
       CloudSyncService.instance.pushStockMovement(_currentCompanyId, movement);
     }
 
@@ -144,13 +180,15 @@ class SqliteShopRepository implements ShopRepository {
         items: draft.items,
       );
 
-      await txn.insert('bills', newBill.toMap());
+      final billMap = newBill.toSqliteMap();
+      billMap['company_id'] = _currentCompanyId;
+      await txn.insert('bills', billMap, conflictAlgorithm: ConflictAlgorithm.replace);
 
       for (final item in draft.items) {
         if (item.productId.isNotEmpty) {
           await txn.rawUpdate(
-            'UPDATE products SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END WHERE id = ?',
-            [item.qty, item.qty, item.productId],
+            'UPDATE products SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END WHERE id = ? AND ${_whereCompany()}',
+            [item.qty, item.qty, item.productId, _currentCompanyId],
           );
 
           // Stock movement audit record
@@ -164,7 +202,9 @@ class SqliteShopRepository implements ShopRepository {
             createdAt: newBill.time,
             note: 'Sold via Invoice ${newBill.id}',
           );
-          await txn.insert('stock_movements', movement.toMap());
+          final mMap = Map<String, dynamic>.from(movement.toMap());
+          mMap['company_id'] = _currentCompanyId;
+          await txn.insert('stock_movements', mMap, conflictAlgorithm: ConflictAlgorithm.replace);
           CloudSyncService.instance.pushStockMovement(_currentCompanyId, movement);
         }
       }
@@ -181,6 +221,21 @@ class SqliteShopRepository implements ShopRepository {
       CloudSyncService.instance.pushCustomer(_currentCompanyId, savedCustomer!);
     }
 
+    // Sync updated product stocks to Cloud Firestore immediately
+    for (final item in draft.items) {
+      if (item.productId.isNotEmpty) {
+        final pRows = await db.query(
+          'products',
+          where: 'id = ? AND ${_whereCompany()}',
+          whereArgs: [item.productId, _currentCompanyId],
+          limit: 1,
+        );
+        if (pRows.isNotEmpty) {
+          CloudSyncService.instance.pushProduct(_currentCompanyId, Product.fromMap(pRows.first));
+        }
+      }
+    }
+
     return bill;
   }
 
@@ -193,8 +248,13 @@ class SqliteShopRepository implements ShopRepository {
 
       final pointsEarned = ((amountSpent / 100).floor()) * config.pointsPer100Spent;
 
-      final existing =
-          await txn.query('customer_loyalty', where: 'customer_id = ?', whereArgs: [customerId], limit: 1);
+      final existing = await txn.query(
+        'customer_loyalty',
+        where: 'customer_id = ? AND ${_whereCompany()}',
+        whereArgs: [customerId, _currentCompanyId],
+        limit: 1,
+      );
+
       if (existing.isEmpty) {
         final totalPoints = config.welcomeBonusPoints + pointsEarned;
         final data = {
@@ -204,8 +264,9 @@ class SqliteShopRepository implements ShopRepository {
           'marketing_consent': 1,
           'notes': 'Account opened with welcome points',
           'updated_at': DateTime.now().toIso8601String(),
+          'company_id': _currentCompanyId,
         };
-        await txn.insert('customer_loyalty', data);
+        await txn.insert('customer_loyalty', data, conflictAlgorithm: ConflictAlgorithm.replace);
         CloudSyncService.instance.pushCustomerLoyalty(_currentCompanyId, customerId, data);
       } else {
         final currentPoints = (existing.first['points'] as num?)?.toInt() ?? 0;
@@ -213,12 +274,14 @@ class SqliteShopRepository implements ShopRepository {
           'customer_id': customerId,
           'points': currentPoints + pointsEarned,
           'updated_at': DateTime.now().toIso8601String(),
+          'company_id': _currentCompanyId,
         };
         await txn.update(
           'customer_loyalty',
           data,
-          where: 'customer_id = ?',
-          whereArgs: [customerId],
+          where: 'customer_id = ? AND ${_whereCompany()}',
+          whereArgs: [customerId, _currentCompanyId],
+          conflictAlgorithm: ConflictAlgorithm.replace,
         );
         CloudSyncService.instance.pushCustomerLoyalty(_currentCompanyId, customerId, data);
       }
@@ -226,7 +289,12 @@ class SqliteShopRepository implements ShopRepository {
   }
 
   Future<Customer> _upsertCustomer(Transaction txn, BillDraft draft) async {
-    final existing = await txn.query('customers', where: 'mobile = ?', whereArgs: [draft.mobile], limit: 1);
+    final existing = await txn.query(
+      'customers',
+      where: 'mobile = ? AND ${_whereCompany()}',
+      whereArgs: [draft.mobile, _currentCompanyId],
+      limit: 1,
+    );
     final itemSummary = draft.primaryItemSummary;
     final sizeSummary = draft.primarySize;
     final colorSummary = draft.primaryColor;
@@ -234,8 +302,8 @@ class SqliteShopRepository implements ShopRepository {
     if (existing.isEmpty) {
       final customer = Customer(
         id: _uuid.v4(),
-        name: draft.customer,
-        mobile: draft.mobile,
+        name: draft.customer.trim().isNotEmpty ? draft.customer.trim() : 'Customer',
+        mobile: draft.mobile.trim(),
         size: sizeSummary.isEmpty ? 'Free' : sizeSummary,
         colors: colorSummary.isEmpty ? 'Standard' : colorSummary,
         lastItem: itemSummary,
@@ -243,15 +311,21 @@ class SqliteShopRepository implements ShopRepository {
         visits: 1,
         note: draft.note,
       );
-      await txn.insert('customers', customer.toMap());
+      final cMap = Map<String, dynamic>.from(customer.toMap());
+      cMap['company_id'] = _currentCompanyId;
+      await txn.insert(
+        'customers',
+        cMap,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       return customer;
     }
 
     final previous = Customer.fromMap(existing.first);
     final customer = Customer(
       id: previous.id,
-      name: draft.customer,
-      mobile: draft.mobile,
+      name: draft.customer.trim().isNotEmpty ? draft.customer.trim() : previous.name,
+      mobile: draft.mobile.trim(),
       size: sizeSummary.isNotEmpty ? sizeSummary : previous.size,
       colors: colorSummary.isNotEmpty ? colorSummary : previous.colors,
       lastItem: itemSummary,
@@ -259,14 +333,27 @@ class SqliteShopRepository implements ShopRepository {
       visits: previous.visits + 1,
       note: draft.note.isEmpty ? previous.note : draft.note,
     );
-    await txn.update('customers', customer.toMap(), where: 'id = ?', whereArgs: [customer.id]);
+    final cMap = Map<String, dynamic>.from(customer.toMap());
+    cMap['company_id'] = _currentCompanyId;
+    await txn.update(
+      'customers',
+      cMap,
+      where: 'id = ? AND ${_whereCompany()}',
+      whereArgs: [customer.id, _currentCompanyId],
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return customer;
   }
 
   @override
   Future<List<String>> fetchCategories() async {
     final db = await _databaseService.database;
-    final rows = await db.query('categories', orderBy: 'name COLLATE NOCASE ASC');
+    final rows = await db.query(
+      'categories',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'name COLLATE NOCASE ASC',
+    );
     return rows.map((r) => r['name'] as String).toList();
   }
 
@@ -275,7 +362,11 @@ class SqliteShopRepository implements ShopRepository {
     final clean = name.trim();
     if (clean.isEmpty) return;
     final db = await _databaseService.database;
-    await db.insert('categories', {'name': clean}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert(
+      'categories',
+      {'name': clean, 'company_id': _currentCompanyId},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
     CloudSyncService.instance.pushCategory(_currentCompanyId, clean);
   }
 
@@ -284,8 +375,12 @@ class SqliteShopRepository implements ShopRepository {
     final clean = name.trim();
     if (clean.isEmpty) return;
     final db = await _databaseService.database;
-    await db.delete('categories', where: 'name = ?', whereArgs: [clean]);
-    CloudSyncService.instance.deleteCategory(_currentCompanyId, clean);
+    await db.delete(
+      'categories',
+      where: 'name = ? AND ${_whereCompany()}',
+      whereArgs: [clean, _currentCompanyId],
+    );
+    await CloudSyncService.instance.deleteCategory(_currentCompanyId, clean);
   }
 
   // ---------------------------------------------------------------------------
@@ -307,9 +402,11 @@ class SqliteShopRepository implements ShopRepository {
   @override
   Future<void> saveLoyaltyConfig(LoyaltyProgramConfig config) async {
     final db = await _databaseService.database;
+    final map = Map<String, dynamic>.from(config.toMap());
+    map['company_id'] = _currentCompanyId;
     await db.insert(
       'loyalty_settings',
-      config.toMap(),
+      map,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     CloudSyncService.instance.pushLoyaltyConfig(_currentCompanyId, config);
@@ -318,7 +415,11 @@ class SqliteShopRepository implements ShopRepository {
   @override
   Future<Map<String, Map<String, dynamic>>> fetchAllCustomerLoyaltyData() async {
     final db = await _databaseService.database;
-    final rows = await db.query('customer_loyalty');
+    final rows = await db.query(
+      'customer_loyalty',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+    );
     final result = <String, Map<String, dynamic>>{};
     for (final row in rows) {
       final custId = row['customer_id'] as String;
@@ -336,10 +437,16 @@ class SqliteShopRepository implements ShopRepository {
     String? notes,
   }) async {
     final db = await _databaseService.database;
-    final existing = await db.query('customer_loyalty', where: 'customer_id = ?', whereArgs: [customerId], limit: 1);
+    final existing = await db.query(
+      'customer_loyalty',
+      where: 'customer_id = ? AND ${_whereCompany()}',
+      whereArgs: [customerId, _currentCompanyId],
+      limit: 1,
+    );
 
     final map = <String, dynamic>{
       'customer_id': customerId,
+      'company_id': _currentCompanyId,
       'updated_at': DateTime.now().toIso8601String(),
     };
 
@@ -354,7 +461,12 @@ class SqliteShopRepository implements ShopRepository {
       if (pointsRedeemed != null) map['points_redeemed'] = pointsRedeemed;
       if (marketingConsent != null) map['marketing_consent'] = marketingConsent ? 1 : 0;
       if (notes != null) map['notes'] = notes;
-      await db.update('customer_loyalty', map, where: 'customer_id = ?', whereArgs: [customerId]);
+      await db.update(
+        'customer_loyalty',
+        map,
+        where: 'customer_id = ? AND ${_whereCompany()}',
+        whereArgs: [customerId, _currentCompanyId],
+      );
     }
 
     CloudSyncService.instance.pushCustomerLoyalty(_currentCompanyId, customerId, map);
@@ -363,35 +475,53 @@ class SqliteShopRepository implements ShopRepository {
   @override
   Future<List<Offer>> fetchOffers() async {
     final db = await _databaseService.database;
-    final rows = await db.query('offers', orderBy: 'valid_until DESC');
+    final rows = await db.query(
+      'offers',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'valid_until DESC',
+    );
     return rows.map((r) => Offer.fromMap(r)).toList();
   }
 
   @override
   Future<void> saveOffer(Offer offer) async {
     final db = await _databaseService.database;
-    await db.insert('offers', offer.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    final map = Map<String, dynamic>.from(offer.toMap());
+    map['company_id'] = _currentCompanyId;
+    await db.insert('offers', map, conflictAlgorithm: ConflictAlgorithm.replace);
     CloudSyncService.instance.pushOffer(_currentCompanyId, offer);
   }
 
   @override
   Future<void> deleteOffer(String offerId) async {
     final db = await _databaseService.database;
-    await db.delete('offers', where: 'id = ?', whereArgs: [offerId]);
+    await db.delete(
+      'offers',
+      where: 'id = ? AND ${_whereCompany()}',
+      whereArgs: [offerId, _currentCompanyId],
+    );
     CloudSyncService.instance.deleteOffer(_currentCompanyId, offerId);
   }
 
   @override
   Future<List<OfferTracking>> fetchOfferTracking() async {
     final db = await _databaseService.database;
-    final rows = await db.query('offer_tracking', orderBy: 'sent_at DESC');
+    final rows = await db.query(
+      'offer_tracking',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'sent_at DESC',
+    );
     return rows.map((r) => OfferTracking.fromMap(r)).toList();
   }
 
   @override
   Future<void> recordOfferSent(OfferTracking tracking) async {
     final db = await _databaseService.database;
-    await db.insert('offer_tracking', tracking.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    final map = Map<String, dynamic>.from(tracking.toMap());
+    map['company_id'] = _currentCompanyId;
+    await db.insert('offer_tracking', map, conflictAlgorithm: ConflictAlgorithm.replace);
     CloudSyncService.instance.pushOfferTracking(_currentCompanyId, tracking);
   }
 
@@ -409,11 +539,17 @@ class SqliteShopRepository implements ShopRepository {
         'redeemed_at': DateTime.now().toIso8601String(),
         'bill_id': billId,
         'sales_generated': salesAmount,
+        'company_id': _currentCompanyId,
       },
-      where: 'id = ?',
-      whereArgs: [trackingId],
+      where: 'id = ? AND ${_whereCompany()}',
+      whereArgs: [trackingId, _currentCompanyId],
     );
-    final rows = await db.query('offer_tracking', where: 'id = ?', whereArgs: [trackingId], limit: 1);
+    final rows = await db.query(
+      'offer_tracking',
+      where: 'id = ? AND ${_whereCompany()}',
+      whereArgs: [trackingId, _currentCompanyId],
+      limit: 1,
+    );
     if (rows.isNotEmpty) {
       CloudSyncService.instance.pushOfferTracking(_currentCompanyId, OfferTracking.fromMap(rows.first));
     }
@@ -426,7 +562,12 @@ class SqliteShopRepository implements ShopRepository {
   @override
   Future<List<ReturnRecord>> fetchReturns() async {
     final db = await _databaseService.database;
-    final rows = await db.query('returns', orderBy: 'created_at DESC');
+    final rows = await db.query(
+      'returns',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'created_at DESC',
+    );
     return rows.map((r) => ReturnRecord.fromMap(r)).toList();
   }
 
@@ -434,7 +575,9 @@ class SqliteShopRepository implements ShopRepository {
   Future<ReturnRecord> createReturnOrExchange(ReturnRecord returnRecord) async {
     final db = await _databaseService.database;
     return db.transaction((txn) async {
-      await txn.insert('returns', returnRecord.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+      final map = Map<String, dynamic>.from(returnRecord.toMap());
+      map['company_id'] = _currentCompanyId;
+      await txn.insert('returns', map, conflictAlgorithm: ConflictAlgorithm.replace);
 
       // If return is approved or completed, apply inventory updates immediately
       if (returnRecord.status == ReturnStatus.approved || returnRecord.status == ReturnStatus.completed) {
@@ -455,8 +598,8 @@ class SqliteShopRepository implements ShopRepository {
         if (item.condition.canRestock) {
           // Sellable condition -> restock into inventory
           await txn.rawUpdate(
-            'UPDATE products SET stock = stock + ? WHERE id = ?',
-            [item.qty, item.productId],
+            'UPDATE products SET stock = stock + ? WHERE id = ? AND ${_whereCompany()}',
+            [item.qty, item.productId, _currentCompanyId],
           );
 
           final movement = StockMovement(
@@ -469,7 +612,9 @@ class SqliteShopRepository implements ShopRepository {
             createdAt: DateTime.now(),
             note: 'Restocked from ${returnRecord.id} (Bill: ${returnRecord.billId}) - Condition: Sellable',
           );
-          await txn.insert('stock_movements', movement.toMap());
+          final mMap = Map<String, dynamic>.from(movement.toMap());
+          mMap['company_id'] = _currentCompanyId;
+          await txn.insert('stock_movements', mMap);
           CloudSyncService.instance.pushStockMovement(_currentCompanyId, movement);
         } else {
           // Damaged / defective / worn -> quarantine
@@ -483,7 +628,9 @@ class SqliteShopRepository implements ShopRepository {
             createdAt: DateTime.now(),
             note: 'Quarantined ${item.qty} units from ${returnRecord.id} - Condition: ${item.condition.displayName}',
           );
-          await txn.insert('stock_movements', movement.toMap());
+          final mMap = Map<String, dynamic>.from(movement.toMap());
+          mMap['company_id'] = _currentCompanyId;
+          await txn.insert('stock_movements', mMap);
           CloudSyncService.instance.pushStockMovement(_currentCompanyId, movement);
         }
       }
@@ -494,8 +641,8 @@ class SqliteShopRepository implements ShopRepository {
       for (final exch in returnRecord.exchangeItems) {
         if (exch.productId.isNotEmpty) {
           await txn.rawUpdate(
-            'UPDATE products SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END WHERE id = ?',
-            [exch.qty, exch.qty, exch.productId],
+            'UPDATE products SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END WHERE id = ? AND ${_whereCompany()}',
+            [exch.qty, exch.qty, exch.productId, _currentCompanyId],
           );
 
           final movement = StockMovement(
@@ -508,7 +655,9 @@ class SqliteShopRepository implements ShopRepository {
             createdAt: DateTime.now(),
             note: 'Replacement given for ${returnRecord.id} (Bill: ${returnRecord.billId})',
           );
-          await txn.insert('stock_movements', movement.toMap());
+          final mMap = Map<String, dynamic>.from(movement.toMap());
+          mMap['company_id'] = _currentCompanyId;
+          await txn.insert('stock_movements', mMap);
           CloudSyncService.instance.pushStockMovement(_currentCompanyId, movement);
         }
       }
@@ -524,7 +673,12 @@ class SqliteShopRepository implements ShopRepository {
   }) async {
     final db = await _databaseService.database;
     await db.transaction((txn) async {
-      final rows = await txn.query('returns', where: 'id = ?', whereArgs: [returnId], limit: 1);
+      final rows = await txn.query(
+        'returns',
+        where: 'id = ? AND ${_whereCompany()}',
+        whereArgs: [returnId, _currentCompanyId],
+        limit: 1,
+      );
       if (rows.isEmpty) return;
 
       final previousRecord = ReturnRecord.fromMap(rows.first);
@@ -539,7 +693,14 @@ class SqliteShopRepository implements ShopRepository {
         refundStatus: status == ReturnStatus.completed ? 'Completed' : previousRecord.refundStatus,
       );
 
-      await txn.update('returns', updatedRecord.toMap(), where: 'id = ?', whereArgs: [returnId]);
+      final rMap = Map<String, dynamic>.from(updatedRecord.toMap());
+      rMap['company_id'] = _currentCompanyId;
+      await txn.update(
+        'returns',
+        rMap,
+        where: 'id = ? AND ${_whereCompany()}',
+        whereArgs: [returnId, _currentCompanyId],
+      );
 
       // If newly approved/completed and wasn't previously applied, update inventory
       if (!wasAlreadyApproved && (status == ReturnStatus.approved || status == ReturnStatus.completed)) {
@@ -553,14 +714,21 @@ class SqliteShopRepository implements ShopRepository {
   @override
   Future<List<StockMovement>> fetchStockMovements() async {
     final db = await _databaseService.database;
-    final rows = await db.query('stock_movements', orderBy: 'created_at DESC');
+    final rows = await db.query(
+      'stock_movements',
+      where: _whereCompany(),
+      whereArgs: [_currentCompanyId],
+      orderBy: 'created_at DESC',
+    );
     return rows.map((r) => StockMovement.fromMap(r)).toList();
   }
 
   @override
   Future<void> recordStockMovement(StockMovement movement) async {
     final db = await _databaseService.database;
-    await db.insert('stock_movements', movement.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    final mMap = Map<String, dynamic>.from(movement.toMap());
+    mMap['company_id'] = _currentCompanyId;
+    await db.insert('stock_movements', mMap, conflictAlgorithm: ConflictAlgorithm.replace);
     CloudSyncService.instance.pushStockMovement(_currentCompanyId, movement);
   }
 }

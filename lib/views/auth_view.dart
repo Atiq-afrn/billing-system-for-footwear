@@ -28,8 +28,7 @@ class _AuthViewState extends State<AuthView> {
   final regEmailController = TextEditingController();
   final regPasswordController = TextEditingController();
   final regCompanyController = TextEditingController(text: 'Ayesha Footwear');
-  final regUpiController =
-      TextEditingController(text: 'atiqullahkhan554@okicici');
+  final regUpiController = TextEditingController(text: 'atiqullahkhan554@okicici');
   final regFormKey = GlobalKey<FormState>();
 
   @override
@@ -63,8 +62,7 @@ class _AuthViewState extends State<AuthView> {
       }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar(
-            'Login failed: ${e.toString().replaceAll('Exception:', '')}');
+        _showErrorSnackBar('Login failed: ${e.toString().replaceAll('Exception:', '')}');
       }
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -94,17 +92,19 @@ class _AuthViewState extends State<AuthView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.success,
-            content: Text(
-                'Welcome, ${name.isEmpty ? "Store Owner" : name}! Account registered.'),
+            content: Text('Company "$company" registered successfully!'),
             behavior: SnackBarBehavior.floating,
           ),
         );
         widget.onAuthSuccess();
       }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        _showErrorSnackBar(_parseAuthErrorMessage(e));
+      }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar(
-            'Notice: ${e.toString().replaceAll('Exception:', '')}');
+        _showErrorSnackBar('Registration notice: ${e.toString().replaceAll('Exception:', '')}');
         widget.onAuthSuccess();
       }
     } finally {
@@ -121,11 +121,15 @@ class _AuthViewState extends State<AuthView> {
             const Icon(Icons.error_outline, color: Colors.white, size: 20),
             const SizedBox(width: 10),
             Expanded(
-                child: Text(message,
-                    style: const TextStyle(fontWeight: FontWeight.w600))),
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
           ],
         ),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -136,50 +140,50 @@ class _AuthViewState extends State<AuthView> {
         return 'No registered account found with this email. Please register first.';
       case 'wrong-password':
       case 'invalid-credential':
-        return 'Incorrect password. Please verify and try again.';
+        return 'Incorrect password. Please verify your credentials and try again.';
       case 'email-already-in-use':
         return 'This email address is already registered. Please sign in instead.';
       case 'invalid-email':
-        return 'The email format is invalid. Please enter a valid email.';
+        return 'The email format is invalid. Please enter a valid email address.';
       case 'weak-password':
         return 'Password is too weak. Please use at least 6 characters.';
       case 'network-request-failed':
-        return 'Network connection error. Please check your internet.';
-      case 'internal-error':
-        final message = (e.message ?? '').toUpperCase();
-        if (message.contains('CONFIGURATION_NOT_FOUND') ||
-            message.contains('CONFIGURATION')) {
-          return 'Firebase Auth is not configured yet. Enable Email/Password sign-in in Firebase Console, then try again.';
-        }
-        return e.message ?? 'Authentication error occurred.';
+        return 'Network connection error. Please check your internet connection.';
+      case 'user-disabled':
+        return 'This account has been disabled by an administrator.';
+      case 'too-many-requests':
+        return 'Too many failed login attempts. Please try again later.';
       default:
         return e.message ?? 'Authentication error occurred.';
     }
   }
 
   void _showForgotPasswordDialog() {
-    final resetController =
-        TextEditingController(text: loginEmailController.text.trim());
+    final resetController = TextEditingController(text: loginEmailController.text.trim());
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reset Password',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Reset Password',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Enter your registered email address to receive a secure password reset link.',
+              'Enter your registered email address to receive a secure password reset link via Firebase.',
               style: TextStyle(fontSize: 13, color: AppColors.secondaryText),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             TextField(
               controller: resetController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email Address',
-                prefixIcon: Icon(Icons.email_outlined),
+              decoration: _inputDecoration(
+                label: 'Email Address',
+                icon: Icons.email_outlined,
               ),
             ),
           ],
@@ -187,18 +191,18 @@ class _AuthViewState extends State<AuthView> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('CANCEL'),
+            child: const Text('CANCEL', style: TextStyle(color: AppColors.secondaryText)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.brandBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () async {
               final email = resetController.text.trim();
               if (email.isEmpty || !email.contains('@')) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Please enter a valid email address.')),
+                  const SnackBar(content: Text('Please enter a valid email address.')),
                 );
                 return;
               }
@@ -211,6 +215,7 @@ class _AuthViewState extends State<AuthView> {
                       backgroundColor: AppColors.success,
                       content: Text('Password reset link sent to $email.'),
                       behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   );
                 }
@@ -220,9 +225,49 @@ class _AuthViewState extends State<AuthView> {
                 }
               }
             },
-            child: const Text('SEND RESET LINK'),
+            child: const Text('SEND LINK', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    required IconData icon,
+    String? hint,
+    String? helper,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      helperText: helper,
+      helperMaxLines: 2,
+      prefixIcon: Icon(icon, size: 20, color: const Color(0xFF64748B)),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: const Color(0xFFF8FAFC),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
+      hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+      helperStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.redAccent),
       ),
     );
   }
@@ -231,209 +276,213 @@ class _AuthViewState extends State<AuthView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Top Brand Badge
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2563EB), Color(0xFF00BAF2)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00BAF2).withOpacity(0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Top Brand Badge
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2563EB), Color(0xFF00BAF2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00BAF2).withOpacity(0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: const Icon(Icons.storefront,
-                      color: Colors.white, size: 34),
-                ),
-                const SizedBox(height: 16),
+                      child: const Icon(Icons.storefront, color: Colors.white, size: 32),
+                    ),
+                    const SizedBox(height: 20),
 
-                // App Brand Name
-                const Text(
-                  'AYESHA FOOTWEAR POS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Retail Point of Sale & Inventory System',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.65),
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 28),
+                    // App Brand Name
+                    const Text(
+                      'AYESHA FOOTWEAR',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Multi-Company Retail POS & Billing System',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
 
-                // Switcher Pill: Sign In / Register
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.12)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setState(() => isLoginMode = true),
-                          borderRadius: BorderRadius.circular(10),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isLoginMode
-                                  ? const Color(0xFF2563EB)
-                                  : Colors.transparent,
+                    // Switcher Pill: Sign In / Register
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() => isLoginMode = true),
                               borderRadius: BorderRadius.circular(10),
-                              boxShadow: isLoginMode
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(0xFF2563EB)
-                                            .withOpacity(0.45),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'Sign In',
-                              style: TextStyle(
-                                color:
-                                    isLoginMode ? Colors.white : Colors.white70,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: isLoginMode ? const Color(0xFF2563EB) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: isLoginMode
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFF2563EB).withOpacity(0.4),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Sign In',
+                                  style: TextStyle(
+                                    color: isLoginMode ? Colors.white : Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setState(() => isLoginMode = false),
-                          borderRadius: BorderRadius.circular(10),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: !isLoginMode
-                                  ? const Color(0xFF2563EB)
-                                  : Colors.transparent,
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => setState(() => isLoginMode = false),
                               borderRadius: BorderRadius.circular(10),
-                              boxShadow: !isLoginMode
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(0xFF2563EB)
-                                            .withOpacity(0.45),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'Register Store',
-                              style: TextStyle(
-                                color: !isLoginMode
-                                    ? Colors.white
-                                    : Colors.white70,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: !isLoginMode ? const Color(0xFF2563EB) : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: !isLoginMode
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFF2563EB).withOpacity(0.4),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Register Company',
+                                  style: TextStyle(
+                                    color: !isLoginMode ? Colors.white : Colors.white70,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Form Card
-                Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: isLoginMode ? _buildLoginForm() : _buildRegisterForm(),
-                ),
-
-                const SizedBox(height: 18),
-
-                // Quick Demo Store Access
-                TextButton.icon(
-                  onPressed: () async {
-                    await AuthService.instance.setDemoProfile();
-                    widget.onAuthSuccess();
-                  },
-                  icon:
-                      const Icon(Icons.bolt, size: 16, color: AppColors.accent),
-                  label: const Text(
-                    'Quick Demo Store / Offline Access',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.underline,
                     ),
-                  ),
-                ),
+                    const SizedBox(height: 24),
 
-                const SizedBox(height: 8),
+                    // Form Card
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 30,
+                            offset: const Offset(0, 15),
+                          ),
+                        ],
+                      ),
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 300),
+                        child: isLoginMode ? _buildLoginForm() : _buildRegisterForm(),
+                      ),
+                    ),
 
-                // Footer Info (Flexible to prevent any screen overflow)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.shield_outlined,
-                          color: Colors.white38, size: 14),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          'Secured by Firebase Cloud Authentication',
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
-                              fontSize: 11),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 20),
+
+                    // Quick Demo Store Access
+                    TextButton.icon(
+                      onPressed: () async {
+                        await AuthService.instance.setDemoProfile();
+                        widget.onAuthSuccess();
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.bolt, size: 18, color: Color(0xFF00BAF2)),
+                      label: const Text(
+                        'Quick Demo Store / Offline Access',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.white54,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Security Footer
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.shield_outlined, color: Colors.white38, size: 14),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Secured with Firebase Authentication & Firestore Isolation',
+                            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -448,17 +497,17 @@ class _AuthViewState extends State<AuthView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Welcome Back!',
+            'Welcome Back',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w900,
-              color: AppColors.mainText,
+              color: Color(0xFF1E293B),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text(
-            'Sign in to access your bills, inventory, and customer records.',
-            style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+            'Sign in to access your authorized companies and business data.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 20),
 
@@ -471,13 +520,13 @@ class _AuthViewState extends State<AuthView> {
               if (!v.contains('@')) return 'Enter a valid email address';
               return null;
             },
-            decoration: const InputDecoration(
-              labelText: 'Email Address',
-              hintText: 'e.g. shop@ayeshafootwear.com',
-              prefixIcon: Icon(Icons.email_outlined, size: 20),
+            decoration: _inputDecoration(
+              label: 'Email Address',
+              hint: 'owner@company.com',
+              icon: Icons.email_outlined,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
 
           // Password Field
           TextFormField(
@@ -488,17 +537,16 @@ class _AuthViewState extends State<AuthView> {
               if (v.length < 6) return 'Password must be at least 6 characters';
               return null;
             },
-            decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+            decoration: _inputDecoration(
+              label: 'Password',
+              icon: Icons.lock_outline,
               suffixIcon: IconButton(
                 icon: Icon(
                   obscurePassword ? Icons.visibility_off : Icons.visibility,
                   size: 20,
-                  color: AppColors.secondaryText,
+                  color: const Color(0xFF64748B),
                 ),
-                onPressed: () =>
-                    setState(() => obscurePassword = !obscurePassword),
+                onPressed: () => setState(() => obscurePassword = !obscurePassword),
               ),
             ),
           ),
@@ -508,16 +556,22 @@ class _AuthViewState extends State<AuthView> {
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: _showForgotPasswordDialog,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: const Text(
                 'Forgot password?',
                 style: TextStyle(
-                    color: Color(0xFF2563EB),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold),
+                  color: Color(0xFF2563EB),
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 20),
 
           // Submit Button
           SizedBox(
@@ -528,22 +582,17 @@ class _AuthViewState extends State<AuthView> {
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: isLoading
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2.5),
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                     )
                   : const Text(
-                      'SIGN IN TO STORE',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          letterSpacing: 0.5),
+                      'SIGN IN',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),
                     ),
             ),
           ),
@@ -559,91 +608,33 @@ class _AuthViewState extends State<AuthView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Register Store Account',
+            'Register Company',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w900,
-              color: AppColors.mainText,
+              color: Color(0xFF1E293B),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text(
-            'Your Company Name and UPI ID will be used throughout the app for invoices & payments.',
-            style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
+            'Company name, email, password, mobile number, and UPI ID are required.',
+            style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 18),
 
-          // Full Name
-          TextFormField(
-            controller: regNameController,
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Full Name is required'
-                : null,
-            decoration: const InputDecoration(
-              labelText: 'Owner / Manager Full Name',
-              hintText: 'e.g. Atiqu Khan',
-              prefixIcon: Icon(Icons.person_outline, size: 20),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Mobile Number
-          TextFormField(
-            controller: regMobileController,
-            keyboardType: TextInputType.phone,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) {
-                return 'Mobile number is required';
-              }
-              final digits = v.replaceAll(RegExp(r'\D'), '');
-              if (digits.length < 10) {
-                return 'Enter valid 10-digit mobile number';
-              }
-              return null;
-            },
-            decoration: const InputDecoration(
-              labelText: 'Mobile Number',
-              hintText: 'e.g. 9876543210',
-              prefixIcon: Icon(Icons.phone_outlined, size: 20),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Company Name (CRITICAL)
+          // Company Name (Requirement 1)
           TextFormField(
             controller: regCompanyController,
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Company Name is required'
-                : null,
-            decoration: const InputDecoration(
-              labelText: 'Company / Shop Name',
-              hintText: 'e.g. Ayesha Footwear',
-              prefixIcon: Icon(Icons.storefront_outlined, size: 20),
-              helperText: 'Visible on all receipts, headers & exports',
+            validator: (v) => (v == null || v.trim().isEmpty) ? 'Company Name is required' : null,
+            decoration: _inputDecoration(
+              label: 'Company Name *',
+              hint: 'e.g. Ayesha Footwear',
+              icon: Icons.storefront_outlined,
             ),
           ),
           const SizedBox(height: 12),
 
-          // UPI ID (CRITICAL)
-          TextFormField(
-            controller: regUpiController,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'UPI ID is required';
-              if (!v.contains('@')) {
-                return 'Enter valid UPI ID (e.g. yourname@okicici)';
-              }
-              return null;
-            },
-            decoration: const InputDecoration(
-              labelText: 'Business UPI ID',
-              hintText: 'e.g. atiqullahkhan554@okicici',
-              prefixIcon: Icon(Icons.qr_code_2, size: 20),
-              helperText: 'Used for dynamic customer payment QR codes',
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Email
+          // Email (Requirement 1)
           TextFormField(
             controller: regEmailController,
             keyboardType: TextInputType.emailAddress,
@@ -652,15 +643,15 @@ class _AuthViewState extends State<AuthView> {
               if (!v.contains('@')) return 'Enter a valid email address';
               return null;
             },
-            decoration: const InputDecoration(
-              labelText: 'Email Address',
-              hintText: 'e.g. atiqu@ayeshafootwear.com',
-              prefixIcon: Icon(Icons.email_outlined, size: 20),
+            decoration: _inputDecoration(
+              label: 'Email Address *',
+              hint: 'e.g. owner@ayeshafootwear.com',
+              icon: Icons.email_outlined,
             ),
           ),
           const SizedBox(height: 12),
 
-          // Password
+          // Password (Requirement 1 - Never saved to Firestore)
           TextFormField(
             controller: regPasswordController,
             obscureText: obscurePassword,
@@ -669,18 +660,62 @@ class _AuthViewState extends State<AuthView> {
               if (v.length < 6) return 'Password must be at least 6 characters';
               return null;
             },
-            decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+            decoration: _inputDecoration(
+              label: 'Password (min 6 chars) *',
+              icon: Icons.lock_outline,
               suffixIcon: IconButton(
                 icon: Icon(
                   obscurePassword ? Icons.visibility_off : Icons.visibility,
                   size: 20,
-                  color: AppColors.secondaryText,
+                  color: const Color(0xFF64748B),
                 ),
-                onPressed: () =>
-                    setState(() => obscurePassword = !obscurePassword),
+                onPressed: () => setState(() => obscurePassword = !obscurePassword),
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Mobile Number (Requirement 1)
+          TextFormField(
+            controller: regMobileController,
+            keyboardType: TextInputType.phone,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Mobile number is required';
+              final digits = v.replaceAll(RegExp(r'\D'), '');
+              if (digits.length < 10) return 'Enter a valid 10-digit mobile number';
+              return null;
+            },
+            decoration: _inputDecoration(
+              label: 'Mobile Number *',
+              hint: 'e.g. 9876543210',
+              icon: Icons.phone_outlined,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // UPI ID (Requirement 1)
+          TextFormField(
+            controller: regUpiController,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'UPI ID is required';
+              if (!v.contains('@')) return 'Enter a valid UPI ID (e.g. shop@upi)';
+              return null;
+            },
+            decoration: _inputDecoration(
+              label: 'UPI ID (for QR billing) *',
+              hint: 'e.g. atiqullahkhan554@okicici',
+              icon: Icons.qr_code_2,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Optional Owner Name
+          TextFormField(
+            controller: regNameController,
+            decoration: _inputDecoration(
+              label: 'Owner Full Name (Optional)',
+              hint: 'e.g. Atiqu Khan',
+              icon: Icons.person_outline,
             ),
           ),
           const SizedBox(height: 20),
@@ -694,22 +729,17 @@ class _AuthViewState extends State<AuthView> {
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: isLoading
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2.5),
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                     )
                   : const Text(
-                      'REGISTER & LAUNCH STORE',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          letterSpacing: 0.5),
+                      'REGISTER & CREATE COMPANY',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
                     ),
             ),
           ),

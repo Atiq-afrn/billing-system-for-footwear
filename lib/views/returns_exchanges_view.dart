@@ -43,12 +43,13 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E3A8A),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0F172A),
         elevation: 0,
+        scrolledUnderElevation: 0,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -58,26 +59,30 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
             const Text(
               'Return & Exchange Management',
               style: TextStyle(
-                color: Colors.white,
+                color: Color(0xFF0F172A),
                 fontWeight: FontWeight.w900,
                 fontSize: 16.5,
                 letterSpacing: -0.2,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               '${vm.companyName} • Inventory & Refund Control',
               style: const TextStyle(
-                color: Colors.white70,
+                color: Color(0xFF64748B),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
         actions: [
           IconButton(
             tooltip: 'Process Return / Exchange',
-            icon: const Icon(Icons.add_task_rounded, color: Colors.white),
+            icon: const Icon(Icons.add_task_rounded, color: Color(0xFF0F172A)),
             onPressed: () => _openProcessReturnWizard(context),
           ),
           const SizedBox(width: 4),
@@ -88,6 +93,8 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
             color: Colors.white,
             child: TabBar(
               controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: const Color(0xFF1E3A8A),
               unselectedLabelColor: const Color(0xFF64748B),
               indicatorColor: const Color(0xFF1E3A8A),
@@ -341,13 +348,16 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             record.id,
                             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
@@ -358,6 +368,7 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                             child: Text(
                               'Bill: ${record.billId}',
                               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -365,6 +376,8 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                       Text(
                         '${record.customerName} • ${record.mobile} • $dateStr',
                         style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -403,8 +416,14 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                   children: [
                     const Icon(Icons.arrow_downward_rounded, size: 14, color: Colors.red),
                     const SizedBox(width: 4),
-                    const Text('RETURNED ITEMS:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF475569))),
-                    const Spacer(),
+                    const Expanded(
+                      child: Text(
+                        'RETURNED ITEMS:',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF475569)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Text('Total: ${money(record.returnedTotalAmount)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
@@ -462,8 +481,14 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                     children: [
                       const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.green),
                       const SizedBox(width: 4),
-                      const Text('REPLACEMENT EXCHANGED ITEMS:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF475569))),
-                      const Spacer(),
+                      const Expanded(
+                        child: Text(
+                          'REPLACEMENT EXCHANGED ITEMS:',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF475569)),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
                       Text('Total: ${money(record.exchangeTotalAmount)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -540,51 +565,60 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          record.isCustomerRefund
-                              ? 'Refund Paid: ${money(record.customerRefundAmount)} (${record.refundMethod})'
-                              : record.isCustomerPayable
-                                  ? 'Balance Paid by Customer: ${money(record.customerPayableAmount)} (${record.refundMethod})'
-                                  : 'Even Exchange (No Balance Due)',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w900,
-                            color: record.isCustomerRefund
-                                ? const Color(0xFFDC2626)
-                                : record.isCustomerPayable
-                                    ? const Color(0xFF1E3A8A)
-                                    : const Color(0xFF475569),
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              record.isCustomerRefund
+                                  ? 'Refund Paid: ${money(record.customerRefundAmount)} (${record.refundMethod})'
+                                  : record.isCustomerPayable
+                                      ? 'Balance Paid by Customer: ${money(record.customerPayableAmount)} (${record.refundMethod})'
+                                      : 'Even Exchange (No Balance Due)',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w900,
+                                color: record.isCustomerRefund
+                                    ? const Color(0xFFDC2626)
+                                    : record.isCustomerPayable
+                                        ? const Color(0xFF1E3A8A)
+                                        : const Color(0xFF475569),
+                              ),
+                            ),
+                            if (record.transactionRef.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'Ref: ${record.transactionRef}',
+                                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      if (record.transactionRef.isNotEmpty)
-                        Text(
-                          'Ref: ${record.transactionRef}',
-                          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
-                        ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 10),
 
                 // Action Bar
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     // View Receipt Button
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF1E3A8A),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => _showReceiptModal(context, record),
-                        icon: const Icon(Icons.receipt, size: 14),
-                        label: const Text('View Receipt', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1E3A8A),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        visualDensity: VisualDensity.compact,
                       ),
+                      onPressed: () => _showReceiptModal(context, record),
+                      icon: const Icon(Icons.receipt, size: 14),
+                      label: const Text('View Receipt', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     ),
-                    const SizedBox(width: 6),
 
                     // WhatsApp Receipt Button
                     IconButton.filledTonal(
@@ -596,7 +630,6 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
 
                     // Approval Action if pending
                     if (status == ReturnStatus.pendingApproval) ...[
-                      const SizedBox(width: 6),
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF10B981),
@@ -615,12 +648,17 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                         icon: const Icon(Icons.check, size: 14),
                         label: const Text('Approve', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        tooltip: 'Reject Return',
-                        icon: const Icon(Icons.close, color: Colors.red, size: 18),
-                        visualDensity: VisualDensity.compact,
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Color(0xFFFECACA)),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          visualDensity: VisualDensity.compact,
+                        ),
                         onPressed: () => _openRejectDialog(context, record),
+                        icon: const Icon(Icons.close, size: 14),
+                        label: const Text('Reject', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ],
@@ -1311,15 +1349,21 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                                         },
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Text('Exchange Quantity:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                                    const Spacer(),
                                     SizedBox(
-                                      width: 70,
+                                      width: 80,
                                       child: DropdownButtonFormField<int>(
                                         value: replacementQty,
                                         isDense: true,
                                         decoration: const InputDecoration(labelText: 'Qty', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6)),
                                         items: List.generate(
-                                          replacementProduct!.stock.clamp(1, 5),
+                                          replacementProduct!.stock.clamp(1, 10),
                                           (idx) => DropdownMenuItem(value: idx + 1, child: Text('${idx + 1}', style: const TextStyle(fontSize: 11))),
                                         ),
                                         onChanged: (val) {
@@ -1366,23 +1410,25 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
                             const Divider(height: 12),
                             Row(
                               children: [
-                                Text(
-                                  netDifference < 0
-                                      ? 'REFUND DUE TO CUSTOMER:'
-                                      : netDifference > 0
-                                          ? 'BALANCE PAYABLE BY CUSTOMER:'
-                                          : 'NET BALANCE:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 12,
-                                    color: netDifference < 0
-                                        ? Colors.red
+                                Expanded(
+                                  child: Text(
+                                    netDifference < 0
+                                        ? 'REFUND DUE TO CUSTOMER:'
                                         : netDifference > 0
-                                            ? const Color(0xFF1E3A8A)
-                                            : Colors.black87,
+                                            ? 'BALANCE PAYABLE BY CUSTOMER:'
+                                            : 'NET BALANCE:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 11.5,
+                                      color: netDifference < 0
+                                          ? Colors.red
+                                          : netDifference > 0
+                                              ? const Color(0xFF1E3A8A)
+                                              : Colors.black87,
+                                    ),
                                   ),
                                 ),
-                                const Spacer(),
+                                const SizedBox(width: 8),
                                 Text(
                                   money(netDifference.abs()),
                                   style: TextStyle(
@@ -1658,16 +1704,20 @@ class _ReturnsExchangesViewState extends State<ReturnsExchangesView> with Single
               if (record.isCustomerRefund)
                 Row(
                   children: [
-                    const Text('Refund Paid:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
-                    const Spacer(),
+                    const Expanded(
+                      child: Text('Refund Paid:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
+                    ),
+                    const SizedBox(width: 8),
                     Text(money(record.customerRefundAmount), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.red)),
                   ],
                 )
               else if (record.isCustomerPayable)
                 Row(
                   children: [
-                    const Text('Balance Paid by Customer:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E3A8A))),
-                    const Spacer(),
+                    const Expanded(
+                      child: Text('Balance Paid by Customer:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E3A8A))),
+                    ),
+                    const SizedBox(width: 8),
                     Text(money(record.customerPayableAmount), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF1E3A8A))),
                   ],
                 )

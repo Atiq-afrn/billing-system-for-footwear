@@ -142,6 +142,9 @@ static const PdfColor _white = PdfColors.white;
 Future<Uint8List> buildBillPdf(
 Bill bill, {
 String companyName = 'Ayesha Footwear',
+String? address,
+String? mobile,
+String? upiId,
 }) async {
 final pdf = pw.Document();
 
@@ -164,7 +167,13 @@ return pw.Column(
 crossAxisAlignment: pw.CrossAxisAlignment.start,
 children: [
 // Header
-_buildHeader(companyName, bill),
+_buildHeader(
+companyName,
+bill,
+address: address,
+mobile: mobile,
+upiId: upiId,
+),
 
 pw.SizedBox(height: 14),
 
@@ -246,6 +255,16 @@ color: _navy,
 ),
 ),
 ),
+if (bill.payMode.toUpperCase() == 'UPI' && upiId != null && upiId.trim().isNotEmpty) ...[
+pw.SizedBox(height: 4),
+pw.Text(
+'UPI: ${upiId.trim()}',
+style: const pw.TextStyle(
+fontSize: 8,
+color: _muted,
+),
+),
+],
 ],
 ),
 ),
@@ -314,7 +333,13 @@ return pdf.save();
 // Header
 // ---------------------------------------------------------------------------
 
-pw.Widget _buildHeader(String companyName, Bill bill) {
+pw.Widget _buildHeader(
+String companyName,
+Bill bill, {
+String? address,
+String? mobile,
+String? upiId,
+}) {
 return pw.Column(
 children: [
 pw.Row(
@@ -327,21 +352,44 @@ children: [
 pw.Text(
 companyName.toUpperCase(),
 style: pw.TextStyle(
-fontSize: 21,
+fontSize: 20,
 fontWeight: pw.FontWeight.bold,
 color: _navy,
 letterSpacing: 0.5,
 ),
 ),
-pw.SizedBox(height: 4),
+pw.SizedBox(height: 3),
+if (address != null && address.trim().isNotEmpty) ...[
 pw.Text(
-'Retail & Commercial Sales',
+address.trim(),
 style: const pw.TextStyle(
-fontSize: 9,
+fontSize: 8.5,
 color: _muted,
 ),
 ),
-pw.SizedBox(height: 6),
+pw.SizedBox(height: 2),
+],
+if (mobile != null && mobile.trim().isNotEmpty) ...[
+pw.Text(
+'Phone: ${mobile.trim()}',
+style: const pw.TextStyle(
+fontSize: 8.5,
+color: _muted,
+),
+),
+pw.SizedBox(height: 2),
+],
+if (upiId != null && upiId.trim().isNotEmpty) ...[
+pw.Text(
+'UPI ID: ${upiId.trim()}',
+style: const pw.TextStyle(
+fontSize: 8.5,
+color: _muted,
+),
+),
+pw.SizedBox(height: 2),
+],
+pw.SizedBox(height: 4),
 pw.Container(
 padding: const pw.EdgeInsets.symmetric(
 horizontal: 7,

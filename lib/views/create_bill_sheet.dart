@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../app/app_colors.dart';
 import '../models/bill_draft.dart';
 import '../models/bill_item.dart';
 import '../models/product.dart';
+import '../widgets/product_image_widget.dart';
 import '../widgets/shop_widgets.dart';
 import 'qr_scanner_view.dart';
 
@@ -948,9 +947,6 @@ class _CreateBillSheetState extends State<CreateBillSheet> {
                 final remaining =
                     product.stock - _getInCartQtyForProduct(product.id);
 
-                final hasImage = product.imagePath.isNotEmpty &&
-                    File(product.imagePath).existsSync();
-
                 final screenWidth = MediaQuery.sizeOf(context).width;
                 final cardWidth =
                 (screenWidth - 64).clamp(155.0, 220.0).toDouble();
@@ -973,20 +969,12 @@ class _CreateBillSheetState extends State<CreateBillSheet> {
                     ),
                     child: Row(
                       children: [
-                        ClipRRect(
+                        ProductImageWidget(
+                          product: product,
+                          width: 47,
+                          height: 56,
                           borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            width: 47,
-                            height: 56,
-                            child: hasImage
-                                ? Image.file(
-                              File(product.imagePath),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  _productPlaceholder(),
-                            )
-                                : _productPlaceholder(),
-                          ),
+                          placeholder: _productPlaceholder(),
                         ),
                         const SizedBox(width: 8),
                         Expanded(

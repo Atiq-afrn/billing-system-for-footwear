@@ -35,15 +35,23 @@ Future<void> main() async {
     }
   }
 
-  // --- Migrate Collections ---
+  // --- Migrate Collections under companies/comp_ayesha_footwear ---
+  const companyId = 'comp_ayesha_footwear';
+  final companyDoc = firestore.collection('companies').doc(companyId);
+  await companyDoc.set({
+    'id': companyId,
+    'name': 'Ayesha Footwear',
+    'createdAt': DateTime.now().toIso8601String(),
+    'upiId': 'atiqullahkhan554@okicici',
+  });
 
-  await _migrateCollection(firestore, 'categories', tables['categories'] as List, 'name');
+  await _migrateCollection(companyDoc, 'categories', tables['categories'] as List, 'name');
 
-  await _migrateCollection(firestore, 'products', tables['products'] as List, 'id');
+  await _migrateCollection(companyDoc, 'products', tables['products'] as List, 'id');
 
-  await _migrateCollection(firestore, 'customers', tables['customers'] as List, 'id');
+  await _migrateCollection(companyDoc, 'customers', tables['customers'] as List, 'id');
 
-  await _migrateCollection(firestore, 'bills', tables['bills'] as List, 'id', transform: (doc) {
+  await _migrateCollection(companyDoc, 'bills', tables['bills'] as List, 'id', transform: (doc) {
     if (doc['items_json'] != null) {
       doc['items'] = parseItemsJson(doc['items_json']);
       doc.remove('items_json');
@@ -52,23 +60,23 @@ Future<void> main() async {
     return doc;
   });
 
-  await _migrateCollection(firestore, 'customer_loyalty', tables['customer_loyalty'] as List, 'customer_id');
+  await _migrateCollection(companyDoc, 'customer_loyalty', tables['customer_loyalty'] as List, 'customer_id');
 
-  await _migrateCollection(firestore, 'loyalty_settings', tables['loyalty_settings'] as List, 'id');
+  await _migrateCollection(companyDoc, 'loyalty_settings', tables['loyalty_settings'] as List, 'id');
 
-  await _migrateCollection(firestore, 'offers', tables['offers'] as List, 'id', transform: (doc) {
+  await _migrateCollection(companyDoc, 'offers', tables['offers'] as List, 'id', transform: (doc) {
     doc['valid_from'] = toTimestamp(doc['valid_from'] as String?);
     doc['valid_until'] = toTimestamp(doc['valid_until'] as String?);
     return doc;
   });
 
-  await _migrateCollection(firestore, 'offer_tracking', tables['offer_tracking'] as List, 'id', transform: (doc) {
+  await _migrateCollection(companyDoc, 'offer_tracking', tables['offer_tracking'] as List, 'id', transform: (doc) {
     doc['sent_at'] = toTimestamp(doc['sent_at'] as String?);
     doc['redeemed_at'] = toTimestamp(doc['redeemed_at'] as String?);
     return doc;
   });
 
-  await _migrateCollection(firestore, 'returns', tables['returns'] as List, 'id', transform: (doc) {
+  await _migrateCollection(companyDoc, 'returns', tables['returns'] as List, 'id', transform: (doc) {
     doc['created_at'] = toTimestamp(doc['created_at'] as String?);
     doc['processed_at'] = toTimestamp(doc['processed_at'] as String?);
     if (doc['items_json'] != null) {
@@ -82,17 +90,17 @@ Future<void> main() async {
     return doc;
   });
 
-  await _migrateCollection(firestore, 'stock_movements', tables['stock_movements'] as List, 'id', transform: (doc) {
+  await _migrateCollection(companyDoc, 'stock_movements', tables['stock_movements'] as List, 'id', transform: (doc) {
     doc['created_at'] = toTimestamp(doc['created_at'] as String?);
     return doc;
   });
 
-  print('\n🎉 Migration complete!');
+  print('\n🎉 Migration complete! Only companies collection created at root.');
   await admin.close();
 }
 
 Future<void> _migrateCollection(
-    Firestore firestore,
+    DocumentReference companyDoc,
     String collectionName,
     List<dynamic> documents,
     String idField, {
@@ -104,15 +112,15 @@ Future<void> _migrateCollection(
   for (final doc in documents) {
     final docMap = Map<String, dynamic>.from(doc as Map);
     final docId = docMap[idField]?.toString() ??
-        firestore.collection(collectionName).doc().id;
+        companyDoc.collection(collectionName).doc().id;
 
     var finalDoc = docMap;
     if (transform != null) {
       finalDoc = transform(docMap);
     }
 
-    // Write one document at a time
-    await firestore.collection(collectionName).doc(docId).set(finalDoc);
+    // Write strictly under companies/{companyId}/{collectionName}/{docId}
+    await companyDoc.collection(collectionName).doc(docId).set(finalDoc);
     count++;
 
     if (count % 100 == 0) {
@@ -120,5 +128,5 @@ Future<void> _migrateCollection(
     }
   }
 
-  print('  ✅ $collectionName: $count documents migrated');
+  print('  ✅ $collectionName: $count documents migrated under company');
 }

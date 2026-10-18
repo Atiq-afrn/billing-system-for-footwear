@@ -9,6 +9,7 @@ import 'services/database_service.dart';
 import 'services/excel_export_service.dart';
 import 'view_models/shop_view_model.dart';
 import 'views/auth_view.dart';
+import 'views/company_selection_view.dart';
 import 'views/shop_shell.dart';
 
 void main() async {
@@ -38,7 +39,7 @@ class _AyeshaFootwearAppState extends State<AyeshaFootwearApp> {
     final databaseService = DatabaseService();
     final repository = SqliteShopRepository(
       databaseService,
-      () => AuthService.instance.currentProfile?.effectiveCompanyId ?? 'comp_ayesha_footwear',
+      () => AuthService.instance.activeCompanyId,
     );
     viewModel = ShopViewModel(
       repository,
@@ -61,18 +62,31 @@ class _AyeshaFootwearAppState extends State<AyeshaFootwearApp> {
       builder: (context, _) {
         final authService = AuthService.instance;
         final isAuth = authService.isAuthenticated;
+        final hasActiveCompany = authService.activeCompany != null;
+
+        Widget homeWidget;
+        if (!isAuth) {
+          homeWidget = AuthView(
+            onAuthSuccess: () async {
+              await viewModel.onUserAuthenticated();
+            },
+          );
+        } else if (!hasActiveCompany) {
+          homeWidget = CompanySelectionView(
+            viewModel: viewModel,
+            onCompanySelected: (company) async {
+              await viewModel.switchCompany(company);
+            },
+          );
+        } else {
+          homeWidget = ShopShell(viewModel: viewModel);
+        }
 
         return MaterialApp(
           title: viewModel.companyName,
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(),
-          home: isAuth
-              ? ShopShell(viewModel: viewModel)
-              : AuthView(
-                  onAuthSuccess: () async {
-                    await viewModel.refreshUserProfile();
-                  },
-                ),
+          home: homeWidget,
         );
       },
     );

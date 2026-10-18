@@ -27,15 +27,29 @@ class CompanyProfile {
         'address': address,
       };
 
-  factory CompanyProfile.fromMap(Map<String, dynamic> map, {String? defaultId}) => CompanyProfile(
-        id: (map['id'] ?? defaultId ?? '') as String,
-        name: (map['name'] ?? map['companyName'] ?? 'Ayesha Footwear') as String,
-        ownerUid: (map['ownerUid'] ?? map['owner_uid'] ?? '') as String,
-        mobile: (map['mobile'] ?? '') as String,
-        upiId: (map['upiId'] ?? map['upi_id'] ?? 'atiqullahkhan554@okicici') as String,
-        createdAt: DateTime.tryParse((map['createdAt'] ?? '') as String) ?? DateTime.now(),
-        address: (map['address'] ?? '') as String,
-      );
+  factory CompanyProfile.fromMap(Map<String, dynamic> map, {String? defaultId}) {
+    DateTime parsedCreatedAt = DateTime.now();
+    final rawCreated = map['createdAt'] ?? map['created_at'];
+    if (rawCreated is DateTime) {
+      parsedCreatedAt = rawCreated;
+    } else if (rawCreated != null && rawCreated.runtimeType.toString() == 'Timestamp') {
+      try {
+        parsedCreatedAt = (rawCreated as dynamic).toDate();
+      } catch (_) {}
+    } else if (rawCreated is String) {
+      parsedCreatedAt = DateTime.tryParse(rawCreated) ?? DateTime.now();
+    }
+
+    return CompanyProfile(
+      id: (map['id'] ?? defaultId ?? '') as String,
+      name: (map['name'] ?? map['companyName'] ?? 'Ayesha Footwear') as String,
+      ownerUid: (map['ownerUid'] ?? map['owner_uid'] ?? '') as String,
+      mobile: (map['mobile'] ?? '') as String,
+      upiId: (map['upiId'] ?? map['upi_id'] ?? 'atiqullahkhan554@okicici') as String,
+      createdAt: parsedCreatedAt,
+      address: (map['address'] ?? '') as String,
+    );
+  }
 
   CompanyProfile copyWith({
     String? id,

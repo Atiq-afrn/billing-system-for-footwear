@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 
-import '../app/app_colors.dart';
 import '../models/bill.dart';
+import '../models/product.dart';
 import '../view_models/shop_view_model.dart';
+import '../widgets/product_image_widget.dart';
 import '../widgets/shop_widgets.dart';
 
 class DashboardView extends StatefulWidget {
@@ -45,101 +45,325 @@ class _DashboardViewState extends State<DashboardView> {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
 
+  // Global styling for all cards
+  BoxDecoration _cardDecoration() => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+    boxShadow: [
+      BoxShadow(
+        color: const Color(0xFF0F172A).withOpacity(0.03),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
-    final vm = widget.viewModel;
-    final currentMonthName = _monthNames[vm.selectedMonth.month - 1];
-    final prevMonthName = _monthNames[vm.previousMonth.month - 1];
+    return ListenableBuilder(
+      listenable: widget.viewModel,
+      builder: (context, _) {
+        final vm = widget.viewModel;
+        final currentMonthName = _monthNames[vm.selectedMonth.month - 1];
+        final prevMonthName = _monthNames[vm.previousMonth.month - 1];
 
-    final isPositiveSales = vm.netSalesPercentChange >= 0;
-    final salesArrow = isPositiveSales ? '↗' : '↘';
+        final isPositiveSales = vm.netSalesPercentChange >= 0;
+        final salesArrow = isPositiveSales ? '↗' : '↘';
 
-    return Stack(
-      children: [
-        ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-          children: [
-            // TOP HEADER: Brand Avatar, Title, Subtitle, Notifications Bell (Identical across all pages)
-            Header(
-              title: widget.viewModel.companyName,
-              subtitle: 'Sales & Business Overview',
-              unreadAlertsCount: widget.viewModel.finishedStockCount,
-              onNotificationsPressed: widget.onStockAlerts,
+        return Container(
+          color: const Color(0xFFF8FAFC), // Very soft grey background
+          child: Stack(
+            children: [
+          ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100), // Space for FAB
+            children: [
+              // TOP HEADER
+              Header(
+                title: widget.viewModel.companyName,
+                subtitle: 'Sales & Business Overview',
+                unreadAlertsCount: widget.viewModel.finishedStockCount,
+                onNotificationsPressed: widget.onStockAlerts,
+              ),
+              const SizedBox(height: 16),
+
+              // MAIN DARK NAVY HERO BANNER
+              _buildNetSalesHeroBanner(
+                vm: vm,
+                currentMonthName: currentMonthName,
+                prevMonthName: prevMonthName,
+                isPositiveSales: isPositiveSales,
+                salesArrow: salesArrow,
+              ),
+              const SizedBox(height: 16),
+
+              // 4 METRIC CARDS (2x2 Grid)
+              _buildMetricCardsGrid(vm: vm),
+              const SizedBox(height: 16),
+
+              // SALES COMPARISON LINE CHART
+              _buildSalesComparisonCard(
+                vm: vm,
+                currentMonthName: currentMonthName,
+                prevMonthName: prevMonthName,
+              ),
+              const SizedBox(height: 16),
+
+              // TWO-COLUMN / GRID SECTION: Top Selling Products & Stock Alerts
+              _buildTopSellingAndAlerts(vm: vm),
+              const SizedBox(height: 16),
+
+              // RECENT BILLS SECTION
+              _buildRecentBillsCard(vm: vm),
+            ],
+          ),
+
+          // CREATE BILL FLOATING BUTTON (Standard Extended FAB)
+          Positioned(
+            bottom: 24,
+            right: 16,
+            child: GestureDetector(
+              onTap: widget.onCreateBill,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30), // Pill shape
+                  boxShadow: [
+                    // Soft white glow
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.8),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                    // Subtle brand shadow for depth
+                    BoxShadow(
+                      color: const Color(0xFF1E3A8A).withOpacity(0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.add_rounded,
+                      color: Color(0xFF1E3A8A), // Brand blue icon
+                      size: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Create Bill',
+                      style: TextStyle(
+                        color: Color(0xFF1E3A8A), // Brand blue text
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 16),
-
-            // MAIN DARK NAVY HERO BANNER: Net Sales & Today's Sales
-            _buildNetSalesHeroBanner(
-              vm: vm,
-              currentMonthName: currentMonthName,
-              prevMonthName: prevMonthName,
-              isPositiveSales: isPositiveSales,
-              salesArrow: salesArrow,
-            ),
-            const SizedBox(height: 14),
-
-            // 4 METRIC CARDS (2x2 Grid)
-            _buildMetricCardsGrid(vm: vm),
-            const SizedBox(height: 16),
-
-            // SALES COMPARISON LINE CHART
-            _buildSalesComparisonCard(
-              vm: vm,
-              currentMonthName: currentMonthName,
-              prevMonthName: prevMonthName,
-            ),
-            const SizedBox(height: 16),
-
-            // TWO-COLUMN / GRID SECTION: Top Selling Products & Stock Alerts
-            _buildTopSellingAndAlerts(vm: vm),
-            const SizedBox(height: 16),
-
-            // RECENT BILLS SECTION
-            _buildRecentBillsCard(vm: vm),
-          ],
-        ),
-
-        // CREATE BILL FLOATING BUTTON (as in Image 2)
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: _buildCreateBillFloatingButton(),
-        ),
-      ],
+          ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Future<void> _openCalendarPicker(BuildContext context) async {
     final now = DateTime.now();
-    final currentSelected = widget.viewModel.selectedMonth;
-    final initialDate = currentSelected.isAfter(now) ? now : currentSelected;
+    final vm = widget.viewModel;
+    final initialMonth = vm.selectedMonth;
+    int selectedYear = initialMonth.year;
 
-    final pickedDate = await showDatePicker(
+    final availableYears = <int>{
+      now.year,
+      now.year - 1,
+      now.year - 2,
+      ...vm.bills.map((b) => b.time.year),
+      initialMonth.year,
+    }.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    await showDialog<void>(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2020),
-      lastDate: now, // Future dates cannot be selected!
-      helpText: 'SELECT SALES FILTER DATE',
-      cancelText: 'CANCEL',
-      confirmText: 'APPLY FILTER',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0F2648),
-              onPrimary: Colors.white,
-              onSurface: Color(0xFF0F2648),
-              secondary: AppColors.accent,
-            ),
-          ),
-          child: child!,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              contentPadding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.calendar_month, color: Color(0xFF1E3A8A), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Select Sales Month',
+                    style: TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Year Selector
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Year',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+                        ),
+                        DropdownButton<int>(
+                          value: selectedYear,
+                          underline: const SizedBox(),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
+                          items: availableYears.map((yr) => DropdownMenuItem(value: yr, child: Text('$yr'))).toList(),
+                          onChanged: (yr) {
+                            if (yr != null) {
+                              setDialogState(() => selectedYear = yr);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 12, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 6),
+
+                    // 12 Months Grid
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 1.8,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (context, idx) {
+                        final monthNum = idx + 1;
+                        final isSelected = vm.selectedMonth.year == selectedYear && vm.selectedMonth.month == monthNum && vm.selectedDate == null;
+                        final isCurrentRealMonth = now.year == selectedYear && now.month == monthNum;
+
+                        return InkWell(
+                          onTap: () {
+                            Navigator.of(dialogCtx).pop();
+                            vm.setSelectedMonth(DateTime(selectedYear, monthNum));
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF1E3A8A)
+                                  : (isCurrentRealMonth ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC)),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFF1E3A8A)
+                                    : (isCurrentRealMonth ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0)),
+                                width: isSelected || isCurrentRealMonth ? 1.5 : 1,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              _shortMonths[idx],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected || isCurrentRealMonth ? FontWeight.w800 : FontWeight.w600,
+                                color: isSelected
+                                    ? Colors.white
+                                    : (isCurrentRealMonth ? const Color(0xFF1E3A8A) : const Color(0xFF334155)),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Quick buttons: "Pick Date" and "This Month"
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              Navigator.of(dialogCtx).pop();
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: vm.selectedDate ?? (vm.selectedMonth.isAfter(now) ? now : vm.selectedMonth),
+                                firstDate: DateTime(2020),
+                                lastDate: now,
+                                helpText: 'SELECT DATE',
+                              );
+                              if (picked != null) {
+                                vm.setSelectedDate(picked);
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1E3A8A),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            icon: const Icon(Icons.today, size: 16),
+                            label: const Text('Pick Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FilledButton.tonal(
+                            onPressed: () {
+                              Navigator.of(dialogCtx).pop();
+                              vm.setSelectedMonth(DateTime(now.year, now.month));
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFEFF6FF),
+                              foregroundColor: const Color(0xFF1E3A8A),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            child: const Text('This Month', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('Close', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                ),
+              ],
+            );
+          },
         );
       },
     );
-
-    if (pickedDate != null) {
-      widget.viewModel.setSelectedMonth(pickedDate);
-    }
   }
 
   Widget _buildNetSalesHeroBanner({
@@ -149,137 +373,113 @@ class _DashboardViewState extends State<DashboardView> {
     required bool isPositiveSales,
     required String salesArrow,
   }) {
-    final netSales = vm.netSalesSelectedMonth > 0 ? vm.netSalesSelectedMonth : vm.todaySales;
+    final netSales = vm.netSalesSelectedMonth;
     final pctString = vm.netSalesPercentChange.abs().toStringAsFixed(1);
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E3A8A), // Blue App Bar
+        color: const Color(0xFF1E3A8A),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x331E3A8A),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: const Color(0xFF1E3A8A).withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      // decoration: BoxDecoration(
-      //   gradient: const LinearGradient(
-      //     colors: [Color(0xFF0E223D), Color(0xFF16325C)],
-      //     begin: Alignment.topLeft,
-      //     end: Alignment.bottomRight,
-      //   ),
-      //   borderRadius: BorderRadius.circular(18),
-      //   boxShadow: [
-      //     BoxShadow(
-      //       color: const Color(0xFF0E223D).withOpacity(0.25),
-      //       blurRadius: 16,
-      //       offset: const Offset(0, 6),
-      //     ),
-      //   ],
-      // ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Top Row: Label and Compact Date Pill
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Left: Net Sales
               Expanded(
-                flex: 6,
+                child: Text(
+                  'Net Sales ($currentMonthName ${vm.selectedMonth.year})',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => _openCalendarPicker(context),
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.calendar_today, size: 10, color: Colors.white70),
+                      const SizedBox(width: 6),
+                      Text(
+                        vm.selectedDate != null
+                            ? '${vm.selectedDate!.day} ${_shortMonths[vm.selectedDate!.month - 1]} ${vm.selectedDate!.year}'
+                            : '${_shortMonths[vm.selectedMonth.month - 1]} ${vm.selectedMonth.year}',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white70),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Main Row: Net Sales (Left) & Today's Sales (Right)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Left Side: Net Sales Amount
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        const Text(
-                          'Net Sales',
-                          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.calendar_month, color: Colors.white70, size: 10),
-                              SizedBox(width: 4),
-                              Text('Month to Date', style: TextStyle(color: Colors.white70, fontSize: 10)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Date Filter right under Month to Date (opens calendar with no future dates allowed)
-                    InkWell(
-                      onTap: () => _openCalendarPicker(context),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.16),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white24, width: 0.8),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.edit_calendar, size: 12, color: AppColors.accent),
-                              const SizedBox(width: 5),
-                              Text(
-                                '${_shortMonths[vm.selectedMonth.month - 1]} ${vm.selectedMonth.day}, ${vm.selectedMonth.year}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                              const SizedBox(width: 3),
-                              const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white70),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
                     Text(
                       '₹${_formatCurrency(netSales)}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 32,
+                        fontSize: 28,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 6,
                       runSpacing: 2,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text(
-                          '$salesArrow $pctString%',
-                          style: TextStyle(
-                            color: isPositiveSales ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isPositiveSales
+                                ? const Color(0xFF22C55E).withOpacity(0.2)
+                                : const Color(0xFFEF4444).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '$salesArrow $pctString%',
+                            style: TextStyle(
+                              color: isPositiveSales ? const Color(0xFF4ADE80) : const Color(0xFFF87171),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                         Text(
-                          'vs $prevMonthName 1–${vm.selectedMonth.day}, ${vm.selectedMonth.year}',
-                          style: const TextStyle(color: Colors.white60, fontSize: 11),
+                          'vs $prevMonthName',
+                          style: const TextStyle(color: Colors.white54, fontSize: 10),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -287,41 +487,31 @@ class _DashboardViewState extends State<DashboardView> {
                 ),
               ),
 
-              // Vertical divider
-              Container(
-                width: 1,
-                height: 80,
-                color: Colors.white12,
-                margin: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-
-              // Right: Today's Sales
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Today's Sales",
-                      style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+              // Right Side: Today's or Selected Day's Sales Amount
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    vm.selectedDate != null
+                        ? '${vm.selectedDate!.day} ${_shortMonths[vm.selectedDate!.month - 1]} Sales'
+                        : "Today's Sales",
+                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '₹${_formatCurrency(vm.salesForSelectedDate)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '₹${_formatCurrency(vm.todaySales)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${vm.todayBills.length} bills  •  ${vm.todayBills.fold(0, (s, b) => s + b.qty)} items',
-                      style: const TextStyle(color: Colors.white60, fontSize: 11),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${vm.billsForSelectedDate.length} bills • ${vm.billsForSelectedDate.fold(0, (s, b) => s + b.qty)} items',
+                    style: const TextStyle(color: Colors.white54, fontSize: 10),
+                  ),
+                ],
               ),
             ],
           ),
@@ -331,10 +521,10 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildMetricCardsGrid({required ShopViewModel vm}) {
-    final completedBills = vm.completedBillsSelectedMonth > 0 ? vm.completedBillsSelectedMonth : vm.bills.length;
-    final itemsSold = vm.itemsSoldSelectedMonth > 0 ? vm.itemsSoldSelectedMonth : vm.bills.fold(0, (s, b) => s + b.qty);
-    final avgValue = vm.averageBillValueSelectedMonth > 0 ? vm.averageBillValueSelectedMonth : (completedBills > 0 ? (vm.todaySales / (completedBills == 0 ? 1 : completedBills)).round() : 0);
-    final profit = vm.grossProfitSelectedMonth > 0 ? vm.grossProfitSelectedMonth : (vm.todaySales * 0.235).round();
+    final completedBills = vm.completedBillsSelectedMonth;
+    final itemsSold = vm.itemsSoldSelectedMonth;
+    final avgValue = vm.averageBillValueSelectedMonth;
+    final profit = vm.grossProfitSelectedMonth;
 
     return Column(
       children: [
@@ -353,7 +543,7 @@ class _DashboardViewState extends State<DashboardView> {
               child: _buildMetricTile(
                 icon: Icons.all_inbox_outlined,
                 title: 'Items Sold',
-                value: '$itemsSold pairs',
+                value: '$itemsSold',
                 pctChange: vm.itemsSoldPercentChange,
               ),
             ),
@@ -365,7 +555,7 @@ class _DashboardViewState extends State<DashboardView> {
             Expanded(
               child: _buildMetricTile(
                 icon: Icons.account_balance_wallet_outlined,
-                title: 'Average Bill Value',
+                title: 'Avg. Bill Value',
                 value: '₹${_formatCurrency(avgValue)}',
                 pctChange: vm.averageBillValuePercentChange,
               ),
@@ -397,31 +587,20 @@ class _DashboardViewState extends State<DashboardView> {
 
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFF1F5F9), // Very light slate
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: const Color(0xFF1E3A8A), size: 20),
+                child: Icon(icon, color: const Color(0xFF475569), size: 18),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -438,39 +617,38 @@ class _DashboardViewState extends State<DashboardView> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             value,
             style: const TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF0F2648),
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  changeText,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: isPos ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                  ),
+          Row(
+            children: [
+              Text(
+                changeText,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isPos ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
                 ),
-                const SizedBox(width: 4),
-                const Text(
+              ),
+              const SizedBox(width: 4),
+              const Expanded(
+                child: Text(
                   'vs last month',
                   style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -487,23 +665,13 @@ class _DashboardViewState extends State<DashboardView> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with Title & Metric Filter Pills
+          // Header
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -512,20 +680,20 @@ class _DashboardViewState extends State<DashboardView> {
                     const Text(
                       'Sales Comparison',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F2648),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$currentMonthName 1–${DateTime.now().day}, ${vm.selectedMonth.year} vs $prevMonthName',
+                      '$currentMonthName vs $prevMonthName',
                       style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
               ),
-              // Segmented Pills: Sales | Items | Bills
+              // Segmented Pills
               Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
@@ -540,17 +708,20 @@ class _DashboardViewState extends State<DashboardView> {
                       onTap: () => setState(() => selectedChartMetric = tab),
                       borderRadius: BorderRadius.circular(6),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isSel ? const Color(0xFF0F2648) : Colors.transparent,
+                          color: isSel ? Colors.white : Colors.transparent,
                           borderRadius: BorderRadius.circular(6),
+                          boxShadow: isSel
+                              ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]
+                              : null,
                         ),
                         child: Text(
                           tab,
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: isSel ? Colors.white : const Color(0xFF64748B),
+                            fontWeight: FontWeight.w700,
+                            color: isSel ? const Color(0xFF0F172A) : const Color(0xFF64748B),
                           ),
                         ),
                       ),
@@ -560,22 +731,22 @@ class _DashboardViewState extends State<DashboardView> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // Legend Row
+          // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               _legendDot(const Color(0xFF2563EB), 'This Month'),
-              const SizedBox(width: 14),
-              _legendDot(const Color(0xFF94A3B8), 'Previous Month'),
+              const SizedBox(width: 12),
+              _legendDot(const Color(0xFFCBD5E1), 'Previous Month'),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // Custom Line Chart Canvas
+          // Chart
           SizedBox(
-            height: 170,
+            height: 160,
             width: double.infinity,
             child: CustomPaint(
               painter: _SalesComparisonChartPainter(
@@ -603,7 +774,7 @@ class _DashboardViewState extends State<DashboardView> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
         ),
       ],
     );
@@ -612,10 +783,8 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _buildTopSellingAndAlerts({required ShopViewModel vm}) {
     return Column(
       children: [
-        // Top Selling Products Card
         _buildTopSellingCard(vm),
         const SizedBox(height: 16),
-        // Stock Alerts Card
         _buildStockAlertsCard(vm),
       ],
     );
@@ -626,18 +795,7 @@ class _DashboardViewState extends State<DashboardView> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -648,8 +806,8 @@ class _DashboardViewState extends State<DashboardView> {
                 'Top Selling Products',
                 style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F2648),
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
                 ),
               ),
               InkWell(
@@ -657,20 +815,20 @@ class _DashboardViewState extends State<DashboardView> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('By Quantity', style: TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w700)),
+                    Text('View All', style: TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
                     Icon(Icons.chevron_right, size: 16, color: Color(0xFF2563EB)),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
           if (topList.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
               child: Center(
-                child: Text('No product sales recorded yet.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+                child: Text('No product sales recorded in ${_monthNames[vm.selectedMonth.month - 1]}.', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
               ),
             )
           else
@@ -680,16 +838,15 @@ class _DashboardViewState extends State<DashboardView> {
               final prod = vm.findProductById(item.productId);
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
                   children: [
                     Text(
                       '$rank',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F2648)),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF94A3B8)),
                     ),
                     const SizedBox(width: 12),
-                    // Product image / thumbnail
-                    _buildProductThumbnail(prod?.imagePath),
+                    _buildProductThumbnail(prod),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -697,13 +854,13 @@ class _DashboardViewState extends State<DashboardView> {
                         children: [
                           Text(
                             item.name,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F2648)),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Size ${item.size}  •  ${item.color}',
+                            'Size ${item.size} • ${item.color}',
                             style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -716,11 +873,11 @@ class _DashboardViewState extends State<DashboardView> {
                       children: [
                         Text(
                           '${item.quantity} pairs',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF0F2648)),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF0F172A)),
                         ),
                         Text(
                           '₹${_formatCurrency(item.revenue)}',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F2648)),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: Color(0xFF64748B)),
                         ),
                       ],
                     ),
@@ -733,21 +890,24 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  Widget _buildProductThumbnail(String? imagePath) {
-    if (imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync()) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.file(File(imagePath), width: 38, height: 38, fit: BoxFit.cover),
+  Widget _buildProductThumbnail(Product? prod) {
+    if (prod == null) {
+      return Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Icon(Icons.checkroom_outlined, size: 18, color: Color(0xFF64748B)),
       );
     }
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Icon(Icons.checkroom_outlined, size: 20, color: Color(0xFF0F2648)),
+    return ProductImageWidget(
+      product: prod,
+      width: 36,
+      height: 36,
+      borderRadius: BorderRadius.circular(8),
     );
   }
 
@@ -757,18 +917,7 @@ class _DashboardViewState extends State<DashboardView> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -779,8 +928,8 @@ class _DashboardViewState extends State<DashboardView> {
                 'Stock Alerts',
                 style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F2648),
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
                 ),
               ),
               InkWell(
@@ -788,38 +937,37 @@ class _DashboardViewState extends State<DashboardView> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('View All', style: TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w700)),
+                    Text('View All', style: TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
                     Icon(Icons.chevron_right, size: 16, color: Color(0xFF2563EB)),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // Two Pills: Low Stock & Out of Stock
+          // Two Pills
           Row(
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
+                    color: const Color(0xFFFFFBEB), // Very soft amber
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFDBA74)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFEA580C), size: 22),
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Low Stock', style: TextStyle(fontSize: 11, color: Color(0xFF9A3412))),
+                            const Text('Low Stock', style: TextStyle(fontSize: 11, color: Color(0xFF92400E))),
                             Text(
-                              '${lowStock.length} products',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFFC2410C)),
+                              '${lowStock.length} items',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFFB45309)),
                             ),
                           ],
                         ),
@@ -828,18 +976,17 @@ class _DashboardViewState extends State<DashboardView> {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
+                    color: const Color(0xFFFEF2F2), // Very soft red
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFCA5A5)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 22),
+                      const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -847,8 +994,8 @@ class _DashboardViewState extends State<DashboardView> {
                           children: [
                             const Text('Out of Stock', style: TextStyle(fontSize: 11, color: Color(0xFF991B1B))),
                             Text(
-                              '${outOfStock.length} products',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFFB91C1C)),
+                              '${outOfStock.length} items',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C)),
                             ),
                           ],
                         ),
@@ -859,50 +1006,43 @@ class _DashboardViewState extends State<DashboardView> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
 
-          // Recently Low Stock Sublist
           if (lowStock.isNotEmpty || outOfStock.isNotEmpty) ...[
-            const Text(
-              'Recently Low Stock',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
-            ),
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFFF1F5F9)),
             const SizedBox(height: 8),
             ...[...outOfStock, ...lowStock].take(3).map((prod) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
                   children: [
-                    _buildProductThumbnail(prod.imagePath),
-                    const SizedBox(width: 10),
+                    _buildProductThumbnail(prod),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             prod.name,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F2648)),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            'Size ${prod.sizes.isNotEmpty ? prod.sizes.first : "All"}  •  ${prod.colors.isNotEmpty ? prod.colors.first : "Standard"}',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                          ),
-                          Text(
-                            'Qty: ${prod.stock} (Threshold: 5)',
+                            'Qty left: ${prod.stock}',
                             style: TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: prod.stock <= 0 ? Colors.red : Colors.orange.shade800,
+                              fontWeight: FontWeight.w600,
+                              color: prod.stock <= 0 ? const Color(0xFFDC2626) : const Color(0xFFD97706),
                             ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+                      icon: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
                       onPressed: widget.onStockAlerts,
+                      visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
@@ -915,34 +1055,23 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildRecentBillsCard({required ShopViewModel vm}) {
-    final recentBills = vm.bills.take(5).toList();
+    final recentBills = vm.billsForSelectedMonth.take(5).toList();
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Recent Bills',
-                style: TextStyle(
+              Text(
+                'Recent Bills (${_shortMonths[vm.selectedMonth.month - 1]})',
+                style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F2648),
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
                 ),
               ),
               InkWell(
@@ -950,7 +1079,7 @@ class _DashboardViewState extends State<DashboardView> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('View All', style: TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w700)),
+                    Text('View All', style: TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
                     Icon(Icons.chevron_right, size: 16, color: Color(0xFF2563EB)),
                   ],
                 ),
@@ -960,126 +1089,79 @@ class _DashboardViewState extends State<DashboardView> {
           const SizedBox(height: 12),
 
           if (recentBills.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
               child: Center(
-                child: Text('No bills created yet. Click "+ Create Bill" below.', style: TextStyle(color: Color(0xFF94A3B8))),
+                child: Text('No bills created in ${_monthNames[vm.selectedMonth.month - 1]} ${vm.selectedMonth.year}.', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
               ),
             )
           else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowHeight: 36,
-                dataRowMinHeight: 44,
-                dataRowMaxHeight: 52,
-                horizontalMargin: 0,
-                columnSpacing: 18,
-                headingTextStyle: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: Color(0xFF64748B),
-                ),
-                columns: const [
-                  DataColumn(label: Text('Bill No.')),
-                  DataColumn(label: Text('Date & Time')),
-                  DataColumn(label: Text('Customer')),
-                  DataColumn(label: Text('Items')),
-                  DataColumn(label: Text('Total')),
-                  DataColumn(label: Text('Payment')),
-                  DataColumn(label: Text('Action')),
-                ],
-                rows: recentBills.map((b) {
-                  final formattedDate =
-                      '${b.time.day} ${_shortMonths[b.time.month - 1]} ${b.time.year}, ${b.time.hour.toString().padLeft(2, '0')}:${b.time.minute.toString().padLeft(2, '0')}';
+          // REPLACED DATATABLE WITH CLEAN LIST VIEW
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: recentBills.length,
+              separatorBuilder: (context, index) => const Divider(height: 24, color: Color(0xFFF1F5F9)),
+              itemBuilder: (context, index) {
+                final b = recentBills[index];
+                final formattedDate = '${b.time.day} ${_shortMonths[b.time.month - 1]}, ${b.time.hour.toString().padLeft(2, '0')}:${b.time.minute.toString().padLeft(2, '0')}';
 
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Text(
-                          b.id.length > 8 ? b.id.substring(b.id.length - 7) : b.id,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xFF0F2648)),
+                return InkWell(
+                  onTap: () => widget.onPreviewPdf(b),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Row(
+                    children: [
+                      // Icon
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        child: const Icon(Icons.receipt_long_outlined, color: Color(0xFF2563EB), size: 20),
                       ),
-                      DataCell(Text(formattedDate, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)))),
-                      DataCell(
-                        Text(
-                          b.customer.isNotEmpty ? b.customer : 'Walk-in',
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-                        ),
-                      ),
-                      DataCell(Text('${b.qty}', style: const TextStyle(fontSize: 12))),
-                      DataCell(
-                        Text(
-                          '₹${_formatCurrency(b.total)}',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF0F2648)),
-                        ),
-                      ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            b.payMode,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF15803D),
+                      const SizedBox(width: 12),
+                      // Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              b.customer.isNotEmpty ? b.customer : 'Walk-in Customer',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$formattedDate • ${b.payMode}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
                         ),
                       ),
-                      DataCell(
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right, size: 18, color: Color(0xFF2563EB)),
-                          onPressed: () => widget.onPreviewPdf(b),
-                        ),
+                      // Amount & Badge
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${_formatCurrency(b.total)}',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${b.qty} items',
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
                     ],
-                  );
-                }).toList(),
-              ),
+                  ),
+                );
+              },
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCreateBillFloatingButton() {
-    return InkWell(
-      onTap: widget.onCreateBill,
-      borderRadius: BorderRadius.circular(35),
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE87A24),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFE87A24).withOpacity(0.50),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add, color: Colors.white, size: 24),
-            Text(
-              'Create Bill',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1110,13 +1192,12 @@ class _SalesComparisonChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const maxDay = 10; // Comparing 1-10 as in the reference design
+    const maxDay = 10;
     const leftPadding = 48.0;
     const bottomPadding = 24.0;
     final chartWidth = size.width - leftPadding;
     final chartHeight = size.height - bottomPadding;
 
-    // Find max value
     int maxValue = 6000;
     for (int d = 1; d <= maxDay; d++) {
       if ((currentDaily[d] ?? 0) > maxValue) maxValue = currentDaily[d]!;
@@ -1124,9 +1205,8 @@ class _SalesComparisonChartPainter extends CustomPainter {
     }
     if (maxValue < 6000) maxValue = 6000;
 
-    // Grid lines & Y Axis labels
     final gridPaint = Paint()
-      ..color = const Color(0xFFE2E8F0)
+      ..color = const Color(0xFFF1F5F9)
       ..strokeWidth = 1;
 
     final textStyle = const TextStyle(
@@ -1146,16 +1226,14 @@ class _SalesComparisonChartPainter extends CustomPainter {
       tp.paint(canvas, Offset(leftPadding - tp.width - 8, y - tp.height / 2));
     }
 
-    // X Axis Day Labels
     for (int d = 1; d <= maxDay; d++) {
       final x = leftPadding + ((d - 1) / (maxDay - 1)) * chartWidth;
-      final label = '$d $currentMonthShort';
+      final label = '$d';
       final span = TextSpan(text: label, style: textStyle);
       final tp = TextPainter(text: span, textDirection: TextDirection.ltr)..layout();
       tp.paint(canvas, Offset(x - tp.width / 2, chartHeight + 6));
     }
 
-    // Draw Previous Month Line (Grey)
     _drawLine(
       canvas: canvas,
       daily: previousDaily,
@@ -1164,12 +1242,11 @@ class _SalesComparisonChartPainter extends CustomPainter {
       leftPadding: leftPadding,
       chartWidth: chartWidth,
       chartHeight: chartHeight,
-      color: const Color(0xFF94A3B8),
+      color: const Color(0xFFCBD5E1),
       strokeWidth: 2.0,
-      dotRadius: 3.5,
+      dotRadius: 3.0,
     );
 
-    // Draw This Month Line (Royal Blue)
     _drawLine(
       canvas: canvas,
       daily: currentDaily,
@@ -1179,8 +1256,8 @@ class _SalesComparisonChartPainter extends CustomPainter {
       chartWidth: chartWidth,
       chartHeight: chartHeight,
       color: const Color(0xFF2563EB),
-      strokeWidth: 2.8,
-      dotRadius: 4.5,
+      strokeWidth: 2.5,
+      dotRadius: 4.0,
     );
   }
 

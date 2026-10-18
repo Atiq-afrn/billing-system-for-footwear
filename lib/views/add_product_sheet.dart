@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../app/app_colors.dart';
 import '../models/product.dart';
 import '../models/product_draft.dart';
+import '../services/product_image_service.dart';
 import '../widgets/shop_widgets.dart';
 import 'qr_scanner_view.dart';
 
@@ -41,6 +42,7 @@ final customColorController = TextEditingController();
 
 String category = 'Men Formal';
 String? pickedImagePath;
+String? pickedImageBase64;
 
 late List<String> availableCategories;
 
@@ -194,8 +196,10 @@ imageQuality: 85,
 );
 
 if (picked != null && mounted) {
+final saved = await ProductImageService.instance.saveImageLocally(picked.path);
 setState(() {
-pickedImagePath = picked.path;
+pickedImagePath = saved['localPath'];
+pickedImageBase64 = saved['base64'];
 });
 }
 } catch (e) {
@@ -567,6 +571,7 @@ widget.onAddCategory?.call(prod.category);
 
 if (prod.imagePath.isNotEmpty) {
 pickedImagePath = prod.imagePath;
+pickedImageBase64 = prod.imageBase64;
 }
 
 if (prod.sizes.isNotEmpty) {
@@ -676,6 +681,7 @@ colors: selectedColors.isEmpty
 ? ['Black', 'Tan']
     : selectedColors.toList(),
 imagePath: pickedImagePath ?? '',
+imageBase64: pickedImageBase64 ?? '',
 ),
 );
 
@@ -1265,7 +1271,10 @@ label: 'Remove',
 icon: Icons.delete_outline,
 color: AppColors.error,
 onTap: () {
-setState(() => pickedImagePath = null);
+setState(() {
+pickedImagePath = null;
+pickedImageBase64 = null;
+});
 },
 ),
 ],

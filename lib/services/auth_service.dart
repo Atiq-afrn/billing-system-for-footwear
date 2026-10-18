@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../firebase_options.dart';
+import '../models/company_profile.dart';
 import '../models/user_profile.dart';
 
 class AuthService extends ChangeNotifier {
@@ -19,15 +20,24 @@ class AuthService extends ChangeNotifier {
   UserProfile? get currentProfile => _currentProfile;
   bool get isAuthenticated => _currentProfile != null;
 
+  CompanyProfile? _activeCompany;
+  CompanyProfile? get activeCompany => _activeCompany;
+
+  List<CompanyProfile> _authorizedCompanies = [];
+  List<CompanyProfile> get authorizedCompanies => List.unmodifiable(_authorizedCompanies);
+
+  String get activeCompanyId =>
+      _activeCompany?.id ?? _currentProfile?.effectiveCompanyId ?? 'comp_ayesha_footwear';
+
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
   static const String _prefKey = 'cached_user_profile';
   static const String _loginFlagKey = 'is_user_logged_in';
+  static const String _activeCompanyKey = 'active_company_id';
 
   Future<void> initialize() async {
     try {
-      // Initialize Firebase if not already initialized
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
@@ -39,7 +49,7 @@ class AuthService extends ChangeNotifier {
       debugPrint('Firebase init notice: $e');
     }
 
-    // Load locally cached profile first (offline-first & instant startup)
+    // Load locally cached profile & active company (offline-first & instant startup)
     await _loadCachedProfile();
 
     // Check Firebase Auth state if available
@@ -49,10 +59,12 @@ class AuthService extends ChangeNotifier {
       final isLoggedIn = prefs.getBool(_loginFlagKey) ?? false;
 
       if (firebaseUser != null && isLoggedIn) {
-        // Refresh profile from Firestore in background
-        _fetchRemoteProfile(firebaseUser.uid);
+        // Refresh profile and authorized companies from Firestore in background
+        await _fetchRemoteProfile(firebaseUser.uid);
+        await fetchAuthorizedCompanies();
       } else if (!isLoggedIn) {
         _currentProfile = null;
+        _activeCompany = null;
       }
 
       // Listen for auth state changes
@@ -61,6 +73,7 @@ class AuthService extends ChangeNotifier {
             _currentProfile != null &&
             (prefs.getBool(_loginFlagKey) != true)) {
           _currentProfile = null;
+          _activeCompany = null;
           notifyListeners();
         }
       });
@@ -78,6 +91,18 @@ class AuthService extends ChangeNotifier {
       if (isLoggedIn && jsonStr != null) {
         final map = jsonDecode(jsonStr) as Map<String, dynamic>;
         _currentProfile = UserProfile.fromMap(map);
+
+        final cachedCompanyId = prefs.getString(_activeCompanyKey);
+        if (cachedCompanyId != null && cachedCompanyId.isNotEmpty) {
+          _activeCompany = CompanyProfile(
+            id: cachedCompanyId,
+            name: _currentProfile!.companyName,
+            ownerUid: _currentProfile!.uid,
+            mobile: _currentProfile!.mobile,
+            upiId: _currentProfile!.upiId,
+            createdAt: _currentProfile!.createdAt,
+          );
+        }
       }
     } catch (_) {}
   }
@@ -104,70 +129,101 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // 1. COMPANY REGISTRATION FLOW
+  // ---------------------------------------------------------------------------
+
   Future<UserProfile> register({
-    required String name,
-    required String mobile,
+    required String companyName,
     required String email,
     required String password,
-    required String companyName,
+    required String mobile,
     required String upiId,
+    String? name,
   }) async {
     String uid = 'user_${DateTime.now().millisecondsSinceEpoch}';
 
-    // 1. Firebase Authentication with safe timeout.
+    // 1. Register with Firebase Authentication
     if (_auth != null) {
-      try {
-        final cred = await _auth!
-            .createUserWithEmailAndPassword(
-              email: email.trim(),
-              password: password,
-            )
-            .timeout(const Duration(seconds: 6));
-        if (cred.user != null) {
-          uid = cred.user!.uid;
-          await cred.user!
-              .updateDisplayName(name.trim())
-              .timeout(const Duration(seconds: 3))
-              .catchError((_) {});
-        }
-      } on FirebaseAuthException catch (e) {
-        debugPrint('Firebase Auth notice on register: ${e.code} - ${e.message}');
-      } catch (e) {
-        debugPrint('Firebase Auth register timeout or error: $e');
+      final cred = await _auth!.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      if (cred.user != null) {
+        uid = cred.user!.uid;
+        final displayName = (name != null && name.trim().isNotEmpty) ? name.trim() : companyName.trim();
+        await cred.user!.updateDisplayName(displayName).catchError((_) {});
       }
     }
 
-    final profile = UserProfile(
-      uid: uid,
-      name: name.trim().isEmpty ? 'Store Owner' : name.trim(),
+    // 2. Generate unique companyId (never store password in Firestore)
+    final slug = companyName.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final uniqueSuffix = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    final companyId = 'comp_${slug.isNotEmpty ? slug : "store"}_$uniqueSuffix';
+
+    final companyProfile = CompanyProfile(
+      id: companyId,
+      name: companyName.trim(),
+      ownerUid: uid,
       mobile: mobile.trim(),
-      email: email.trim(),
-      companyName:
-          companyName.trim().isEmpty ? 'Ayesha Footwear' : companyName.trim(),
       upiId: upiId.trim().isEmpty ? 'atiqullahkhan554@okicici' : upiId.trim(),
       createdAt: DateTime.now(),
     );
 
-    // 2. Save to Firestore with timeout (never block local launch)
+    // 3. Save Company document in Firestore under companies/{companyId} (NO PASSWORDS)
+    if (_firestore != null) {
+      try {
+        await _firestore!
+            .collection('companies')
+            .doc(companyId)
+            .set(companyProfile.toMap())
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('Firestore company save notice: $e');
+      }
+    }
+
+    // 4. Save User document in Firestore under users/{uid} (NO PASSWORDS)
+    final profile = UserProfile(
+      uid: uid,
+      name: (name != null && name.trim().isNotEmpty) ? name.trim() : companyName.trim(),
+      mobile: mobile.trim(),
+      email: email.trim(),
+      companyName: companyName.trim(),
+      upiId: upiId.trim().isEmpty ? 'atiqullahkhan554@okicici' : upiId.trim(),
+      createdAt: DateTime.now(),
+      companyId: companyId,
+      ownedCompanyIds: [companyId],
+    );
+
     if (_firestore != null) {
       try {
         await _firestore!
             .collection('users')
             .doc(uid)
             .set(profile.toMap())
-            .timeout(const Duration(seconds: 3));
+            .timeout(const Duration(seconds: 5));
       } catch (e) {
-        debugPrint('Firestore save notice on register: $e');
+        debugPrint('Firestore user save notice: $e');
       }
     }
 
-    // 3. Cache locally and notify listeners
+    // 5. Select this registered company as active
     _currentProfile = profile;
+    _activeCompany = companyProfile;
+    _authorizedCompanies = [companyProfile];
+
     await _cacheProfile(profile);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_activeCompanyKey, companyId);
+
     notifyListeners();
     return profile;
   }
 
+  // ---------------------------------------------------------------------------
+  // 2. LOGIN FLOW
+  // ---------------------------------------------------------------------------
 
   Future<UserProfile> login({
     required String email,
@@ -175,22 +231,16 @@ class AuthService extends ChangeNotifier {
   }) async {
     String uid = '';
 
-    // 1. Sign in via Firebase Auth with safe timeout
+    // 1. Authenticate with Firebase Authentication
     if (_auth != null) {
-      try {
-        final cred = await _auth!
-            .signInWithEmailAndPassword(
-              email: email.trim(),
-              password: password,
-            )
-            .timeout(const Duration(seconds: 6));
-        uid = cred.user?.uid ?? '';
-      } catch (e) {
-        debugPrint('Firebase Auth sign in notice: $e');
-      }
+      final cred = await _auth!.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      uid = cred.user?.uid ?? '';
     }
 
-    // 2. Load profile from Firestore or local cache
+    // 2. Fetch User Profile
     UserProfile? profile;
     if (_firestore != null && uid.isNotEmpty) {
       try {
@@ -198,7 +248,7 @@ class AuthService extends ChangeNotifier {
             .collection('users')
             .doc(uid)
             .get()
-            .timeout(const Duration(seconds: 3));
+            .timeout(const Duration(seconds: 5));
         if (doc.exists && doc.data() != null) {
           profile = UserProfile.fromMap(doc.data()!, defaultUid: uid);
         }
@@ -217,11 +267,8 @@ class AuthService extends ChangeNotifier {
       }
     }
 
-    // Default profile if brand new account with no firestore doc yet
     profile ??= UserProfile(
-      uid: uid.isNotEmpty
-          ? uid
-          : 'user_${DateTime.now().millisecondsSinceEpoch}',
+      uid: uid.isNotEmpty ? uid : 'user_${DateTime.now().millisecondsSinceEpoch}',
       name: email.split('@').first,
       mobile: '',
       email: email.trim(),
@@ -232,9 +279,143 @@ class AuthService extends ChangeNotifier {
 
     _currentProfile = profile;
     await _cacheProfile(profile);
+
+    // 3. Fetch authorized companies where ownerUid == uid
+    await fetchAuthorizedCompanies();
+
+    // 4. Resolve Active Company
+    final prefs = await SharedPreferences.getInstance();
+    final cachedCompanyId = prefs.getString(_activeCompanyKey);
+
+    if (cachedCompanyId != null && _authorizedCompanies.any((c) => c.id == cachedCompanyId)) {
+      _activeCompany = _authorizedCompanies.firstWhere((c) => c.id == cachedCompanyId);
+    } else if (_authorizedCompanies.length == 1) {
+      _activeCompany = _authorizedCompanies.first;
+      await prefs.setString(_activeCompanyKey, _activeCompany!.id);
+    } else {
+      // Multiple companies or none yet - requires company selection
+      _activeCompany = null;
+    }
+
     notifyListeners();
     return profile;
   }
+
+  // ---------------------------------------------------------------------------
+  // 3. AUTHORIZED COMPANIES DIRECTORY
+  // ---------------------------------------------------------------------------
+
+  Future<List<CompanyProfile>> fetchAuthorizedCompanies() async {
+    final uid = _currentProfile?.uid ?? _auth?.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      _authorizedCompanies = [];
+      return [];
+    }
+
+    if (_firestore != null) {
+      try {
+        final snap = await _firestore!
+            .collection('companies')
+            .where('ownerUid', isEqualTo: uid)
+            .get()
+            .timeout(const Duration(seconds: 5));
+
+        final list = snap.docs
+            .map((doc) => CompanyProfile.fromMap(doc.data(), defaultId: doc.id))
+            .toList();
+
+        if (list.isNotEmpty) {
+          _authorizedCompanies = list;
+          notifyListeners();
+          return list;
+        }
+      } catch (e) {
+        debugPrint('Fetch authorized companies notice: $e');
+      }
+    }
+
+    // If no companies found in Firestore (e.g. offline or newly linked), provide active/default
+    if (_authorizedCompanies.isEmpty && _currentProfile != null) {
+      final defaultCompany = CompanyProfile(
+        id: _currentProfile!.effectiveCompanyId,
+        name: _currentProfile!.companyName,
+        ownerUid: _currentProfile!.uid,
+        mobile: _currentProfile!.mobile,
+        upiId: _currentProfile!.upiId,
+        createdAt: _currentProfile!.createdAt,
+      );
+      _authorizedCompanies = [defaultCompany];
+    }
+
+    notifyListeners();
+    return _authorizedCompanies;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. SELECT COMPANY & DATA ISOLATION
+  // ---------------------------------------------------------------------------
+
+  Future<void> selectCompany(CompanyProfile company) async {
+    _activeCompany = company;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_activeCompanyKey, company.id);
+
+    if (_currentProfile != null) {
+      final updated = _currentProfile!.copyWith(
+        companyId: company.id,
+        companyName: company.name,
+        upiId: company.upiId,
+      );
+      _currentProfile = updated;
+      await _cacheProfile(updated);
+    }
+
+    notifyListeners();
+  }
+
+  Future<CompanyProfile> registerNewBranch({
+    required String name,
+    required String upiId,
+    String mobile = '',
+    String address = '',
+  }) async {
+    final uid = _currentProfile?.uid ?? _auth?.currentUser?.uid ?? 'user';
+    final slug = name.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final uniqueSuffix = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    final companyId = 'comp_${slug.isNotEmpty ? slug : "store"}_$uniqueSuffix';
+
+    final company = CompanyProfile(
+      id: companyId,
+      name: name.trim(),
+      ownerUid: uid,
+      mobile: mobile.trim().isNotEmpty ? mobile.trim() : (_currentProfile?.mobile ?? ''),
+      upiId: upiId.trim(),
+      createdAt: DateTime.now(),
+      address: address.trim(),
+    );
+
+    if (_firestore != null) {
+      try {
+        await _firestore!
+            .collection('companies')
+            .doc(companyId)
+            .set(company.toMap())
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('Branch save notice: $e');
+      }
+    }
+
+    final updatedList = [..._authorizedCompanies, company];
+    _authorizedCompanies = updatedList;
+
+    await selectCompany(company);
+    return company;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. PROFILE & PASSWORD RECOVERY
+  // ---------------------------------------------------------------------------
 
   Future<void> updateProfile({
     String? companyName,
@@ -257,6 +438,14 @@ class AuthService extends ChangeNotifier {
 
     _currentProfile = updated;
     await _cacheProfile(updated);
+
+    if (_activeCompany != null && (companyName != null || upiId != null || mobile != null)) {
+      _activeCompany = _activeCompany!.copyWith(
+        name: companyName,
+        upiId: upiId,
+        mobile: mobile,
+      );
+    }
 
     if (_firestore != null && updated.uid.isNotEmpty) {
       try {
@@ -315,6 +504,10 @@ class AuthService extends ChangeNotifier {
     return password.trim().length >= 6;
   }
 
+  // ---------------------------------------------------------------------------
+  // 6. LOGOUT (CLEARS ACTIVE COMPANY & SESSION WITHOUT DELETING SQLITE RECORDS)
+  // ---------------------------------------------------------------------------
+
   Future<void> logout() async {
     if (_auth != null) {
       try {
@@ -324,8 +517,12 @@ class AuthService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_loginFlagKey, false);
+      await prefs.remove(_activeCompanyKey);
     } catch (_) {}
+
     _currentProfile = null;
+    _activeCompany = null;
+    _authorizedCompanies = [];
     notifyListeners();
   }
 
@@ -346,6 +543,15 @@ class AuthService extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     _currentProfile = profile;
+    _activeCompany = CompanyProfile(
+      id: profile.effectiveCompanyId,
+      name: companyName,
+      ownerUid: 'demo_user',
+      mobile: mobile,
+      upiId: upiId,
+      createdAt: DateTime.now(),
+    );
+    _authorizedCompanies = [_activeCompany!];
     await _cacheProfile(profile);
     notifyListeners();
     return profile;

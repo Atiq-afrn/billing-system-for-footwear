@@ -46,6 +46,31 @@ class DatabaseService {
         try {
           await db.execute('ALTER TABLE products ADD COLUMN image_path TEXT');
         } catch (_) {}
+        try {
+          await db.execute('ALTER TABLE products ADD COLUMN image_base64 TEXT');
+        } catch (_) {}
+        for (final table in [
+          'products',
+          'bills',
+          'customers',
+          'categories',
+          'customer_loyalty',
+          'loyalty_settings',
+          'offers',
+          'offer_tracking',
+          'returns',
+          'stock_movements',
+        ]) {
+          try {
+            await db.execute('ALTER TABLE $table ADD COLUMN company_id TEXT DEFAULT "comp_ayesha_footwear"');
+          } catch (_) {}
+        }
+
+        // Migrate existing tables that may have single-column UNIQUE constraints
+        await _migrateCustomerTable(db);
+        await _migrateCategoriesTable(db);
+        await _migrateOffersTable(db);
+
         final result = await db.rawQuery('SELECT COUNT(*) as cnt FROM products');
         final count = (result.first['cnt'] as num?)?.toInt() ?? 0;
         if (count == 0) {
@@ -63,25 +88,137 @@ class DatabaseService {
     );
   }
 
+  Future<void> _migrateCustomerTable(Database db) async {
+    try {
+      final res = await db.rawQuery(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='customers'",
+      );
+      if (res.isNotEmpty) {
+        final sql = (res.first['sql'] as String? ?? '').toLowerCase();
+        if (sql.contains('mobile text not null unique') ||
+            sql.contains('unique (mobile)') ||
+            sql.contains('unique(mobile)')) {
+          await db.execute('''
+            CREATE TABLE customers_temp (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              mobile TEXT NOT NULL,
+              size TEXT NOT NULL,
+              colors TEXT NOT NULL,
+              last_item TEXT NOT NULL,
+              total_spent INTEGER NOT NULL,
+              visits INTEGER NOT NULL,
+              note TEXT NOT NULL,
+              company_id TEXT DEFAULT 'comp_ayesha_footwear'
+            )
+          ''');
+          await db.execute('''
+            INSERT OR IGNORE INTO customers_temp 
+            SELECT id, name, mobile, size, colors, last_item, total_spent, visits, note, COALESCE(company_id, 'comp_ayesha_footwear')
+            FROM customers
+          ''');
+          await db.execute('DROP TABLE customers');
+          await db.execute('ALTER TABLE customers_temp RENAME TO customers');
+          await db.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_mobile_company ON customers(mobile, company_id)',
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _migrateCategoriesTable(Database db) async {
+    try {
+      final res = await db.rawQuery(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='categories'",
+      );
+      if (res.isNotEmpty) {
+        final sql = (res.first['sql'] as String? ?? '').toLowerCase();
+        if (sql.contains('name text primary key') || !sql.contains('primary key (name, company_id)')) {
+          await db.execute('''
+            CREATE TABLE categories_temp (
+              name TEXT NOT NULL,
+              company_id TEXT DEFAULT 'comp_ayesha_footwear',
+              PRIMARY KEY (name, company_id)
+            )
+          ''');
+          await db.execute('''
+            INSERT OR IGNORE INTO categories_temp 
+            SELECT name, COALESCE(company_id, 'comp_ayesha_footwear')
+            FROM categories
+          ''');
+          await db.execute('DROP TABLE categories');
+          await db.execute('ALTER TABLE categories_temp RENAME TO categories');
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _migrateOffersTable(Database db) async {
+    try {
+      final res = await db.rawQuery(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='offers'",
+      );
+      if (res.isNotEmpty) {
+        final sql = (res.first['sql'] as String? ?? '').toLowerCase();
+        if (sql.contains('code text not null unique')) {
+          await db.execute('''
+            CREATE TABLE offers_temp (
+              id TEXT PRIMARY KEY,
+              code TEXT NOT NULL,
+              title TEXT NOT NULL,
+              discount_type TEXT NOT NULL,
+              discount_value REAL NOT NULL,
+              min_spend INTEGER NOT NULL,
+              applicable_category TEXT NOT NULL,
+              target_segment TEXT NOT NULL,
+              valid_from TEXT NOT NULL,
+              valid_until TEXT NOT NULL,
+              message_template TEXT NOT NULL,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              company_id TEXT DEFAULT 'comp_ayesha_footwear'
+            )
+          ''');
+          await db.execute('''
+            INSERT OR IGNORE INTO offers_temp 
+            SELECT id, code, title, discount_type, discount_value, min_spend, applicable_category, target_segment, valid_from, valid_until, message_template, is_active, COALESCE(company_id, 'comp_ayesha_footwear')
+            FROM offers
+          ''');
+          await db.execute('DROP TABLE offers');
+          await db.execute('ALTER TABLE offers_temp RENAME TO offers');
+          await db.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_offers_code_company ON offers(code, company_id)',
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _createTables(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS categories (
-        name TEXT PRIMARY KEY
+        name TEXT NOT NULL,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear',
+        PRIMARY KEY (name, company_id)
       )
     ''');
     await db.execute('''
       CREATE TABLE IF NOT EXISTS customers (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        mobile TEXT NOT NULL UNIQUE,
+        mobile TEXT NOT NULL,
         size TEXT NOT NULL,
         colors TEXT NOT NULL,
         last_item TEXT NOT NULL,
         total_spent INTEGER NOT NULL,
         visits INTEGER NOT NULL,
-        note TEXT NOT NULL
+        note TEXT NOT NULL,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_mobile_company ON customers(mobile, company_id)',
+    );
     await db.execute('''
       CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
@@ -91,7 +228,9 @@ class DatabaseService {
         price INTEGER NOT NULL,
         sizes TEXT NOT NULL,
         colors TEXT NOT NULL,
-        image_path TEXT
+        image_path TEXT,
+        image_base64 TEXT,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
     await db.execute('''
@@ -112,6 +251,7 @@ class DatabaseService {
         note TEXT NOT NULL,
         items_json TEXT,
         created_at TEXT NOT NULL,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear',
         FOREIGN KEY(customer_id) REFERENCES customers(id)
       )
     ''');
@@ -122,7 +262,8 @@ class DatabaseService {
         points_redeemed INTEGER NOT NULL DEFAULT 0,
         marketing_consent INTEGER NOT NULL DEFAULT 1,
         notes TEXT NOT NULL DEFAULT '',
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
     await db.execute('''
@@ -134,13 +275,14 @@ class DatabaseService {
         welcome_bonus_points INTEGER NOT NULL DEFAULT 50,
         high_spending_threshold INTEGER NOT NULL DEFAULT 5000,
         loyal_visits_threshold INTEGER NOT NULL DEFAULT 3,
-        inactive_days_threshold INTEGER NOT NULL DEFAULT 45
+        inactive_days_threshold INTEGER NOT NULL DEFAULT 45,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
     await db.execute('''
       CREATE TABLE IF NOT EXISTS offers (
         id TEXT PRIMARY KEY,
-        code TEXT NOT NULL UNIQUE,
+        code TEXT NOT NULL,
         title TEXT NOT NULL,
         discount_type TEXT NOT NULL,
         discount_value REAL NOT NULL,
@@ -150,9 +292,13 @@ class DatabaseService {
         valid_from TEXT NOT NULL,
         valid_until TEXT NOT NULL,
         message_template TEXT NOT NULL,
-        is_active INTEGER NOT NULL DEFAULT 1
+        is_active INTEGER NOT NULL DEFAULT 1,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_offers_code_company ON offers(code, company_id)',
+    );
     await db.execute('''
       CREATE TABLE IF NOT EXISTS offer_tracking (
         id TEXT PRIMARY KEY,
@@ -165,7 +311,8 @@ class DatabaseService {
         is_redeemed INTEGER NOT NULL DEFAULT 0,
         redeemed_at TEXT,
         bill_id TEXT,
-        sales_generated INTEGER NOT NULL DEFAULT 0
+        sales_generated INTEGER NOT NULL DEFAULT 0,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
     await db.execute('''
@@ -191,7 +338,8 @@ class DatabaseService {
         processed_at TEXT,
         notes TEXT,
         items_json TEXT NOT NULL,
-        exchange_items_json TEXT
+        exchange_items_json TEXT,
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
     await db.execute('''
@@ -203,7 +351,8 @@ class DatabaseService {
         qty_change INTEGER NOT NULL,
         reference_id TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        note TEXT NOT NULL DEFAULT ''
+        note TEXT NOT NULL DEFAULT '',
+        company_id TEXT DEFAULT 'comp_ayesha_footwear'
       )
     ''');
   }
@@ -305,43 +454,50 @@ class DatabaseService {
     }
   }
 
-  Future<void> _seedProducts(Database db) async {
+  Future<void> _seedProducts(Database db, [String companyId = 'comp_ayesha_footwear']) async {
+    final cleanCompanyId = companyId.trim().isNotEmpty ? companyId.trim() : 'comp_ayesha_footwear';
+    final idPrefix = cleanCompanyId == 'comp_ayesha_footwear' ? 'PROD' : 'PROD-${cleanCompanyId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}';
+
     final seeds = [
       {
-        'id': 'PROD-001',
+        'id': '$idPrefix-001',
         'name': 'Italian Formal Leather Shoes',
         'category': 'Men Formal',
         'stock': 15,
         'price': 2499,
         'sizes': '6,7,8,9,10',
         'colors': 'Black,Brown,Tan',
+        'company_id': cleanCompanyId,
       },
       {
-        'id': 'PROD-002',
+        'id': '$idPrefix-002',
         'name': 'Air Comfort Running Sneakers',
         'category': 'Men Sports',
         'stock': 20,
         'price': 1899,
         'sizes': '7,8,9,10,11',
         'colors': 'White,Black,Navy Blue',
+        'company_id': cleanCompanyId,
       },
       {
-        'id': 'PROD-003',
+        'id': '$idPrefix-003',
         'name': 'Designer Velvet High Heels',
         'category': 'Women Heels',
         'stock': 12,
         'price': 2199,
         'sizes': '5,6,7,8',
         'colors': 'Red,Black,Gold',
+        'company_id': cleanCompanyId,
       },
       {
-        'id': 'PROD-004',
+        'id': '$idPrefix-004',
         'name': 'Casual Comfort Daily Flat Sandals',
         'category': 'Women Flats',
         'stock': 25,
         'price': 999,
         'sizes': '4,5,6,7,8',
         'colors': 'Beige,Pink,Tan',
+        'company_id': cleanCompanyId,
       },
     ];
 
@@ -350,7 +506,8 @@ class DatabaseService {
     }
   }
 
-  Future<void> _seedCategories(Database db) async {
+  Future<void> _seedCategories(Database db, [String companyId = 'comp_ayesha_footwear']) async {
+    final cleanCompanyId = companyId.trim().isNotEmpty ? companyId.trim() : 'comp_ayesha_footwear';
     const defaultCats = [
       'Men Formal',
       'Men Casual',
@@ -364,9 +521,33 @@ class DatabaseService {
     for (final cat in defaultCats) {
       await db.insert(
         'categories',
-        {'name': cat},
+        {'name': cat, 'company_id': cleanCompanyId},
         conflictAlgorithm: ConflictAlgorithm.ignore,
       );
+    }
+  }
+
+  Future<void> seedCompanyDefaults(Database db, String companyId) async {
+    final cleanCompanyId = companyId.trim().isNotEmpty ? companyId.trim() : 'comp_ayesha_footwear';
+
+    // 1. Seed Categories if empty for this company
+    final catRes = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM categories WHERE company_id = ?',
+      [cleanCompanyId],
+    );
+    final catCount = (catRes.first['cnt'] as num?)?.toInt() ?? 0;
+    if (catCount == 0) {
+      await _seedCategories(db, cleanCompanyId);
+    }
+
+    // 2. Seed Starter Products if empty for this company
+    final prodRes = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM products WHERE company_id = ?',
+      [cleanCompanyId],
+    );
+    final prodCount = (prodRes.first['cnt'] as num?)?.toInt() ?? 0;
+    if (prodCount == 0) {
+      await _seedProducts(db, cleanCompanyId);
     }
   }
 }

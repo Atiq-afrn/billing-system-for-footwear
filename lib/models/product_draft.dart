@@ -7,6 +7,7 @@ class ProductDraft {
     required this.sizes,
     required this.colors,
     this.imagePath = '',
+    this.imageBase64 = '',
   });
 
   final String name;
@@ -16,4 +17,5 @@ class ProductDraft {
   final List<String> sizes;
   final List<String> colors;
   final String imagePath;
+  final String imageBase64;
 }

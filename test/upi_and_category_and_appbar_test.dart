@@ -65,8 +65,8 @@ void main() {
     });
   });
 
-  group('Blue App Bar & White Styling Tests', () {
-    testWidgets('Header renders with blue background, white company name, white icons and white menu bar', (tester) async {
+  group('Professional Compact App Bar Tests', () {
+    testWidgets('Header renders with clean compact background, professional dark company name and styled icons', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -83,24 +83,21 @@ void main() {
       // Verify Header container is rendered
       expect(find.text('Ayesha Footwear'), findsOneWidget);
       expect(find.text('Sales & Business Overview'), findsOneWidget);
-      expect(find.byIcon(Icons.menu), findsOneWidget);
-      expect(find.byIcon(Icons.notifications_none), findsOneWidget);
+      expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.notifications_outlined), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
 
-      // Verify Container has blue background
-      final headerContainer = tester.widget<Container>(find.byType(Container).first);
-      final decoration = headerContainer.decoration as BoxDecoration;
-      expect(decoration.color, const Color(0xFF1E3A8A));
-
-      // Verify text colors
+      // Verify title has professional dark slate color
       final titleText = tester.widget<Text>(find.text('Ayesha Footwear'));
-      expect(titleText.style?.color, Colors.white);
+      expect(titleText.style?.color, const Color(0xFF0F172A));
 
-      final menuIcon = tester.widget<Icon>(find.byIcon(Icons.menu));
-      expect(menuIcon.color, Colors.white);
+      // Verify menu icon has professional dark color
+      final menuIcon = tester.widget<Icon>(find.byIcon(Icons.menu_rounded));
+      expect(menuIcon.color, const Color(0xFF0F172A));
 
-      final bellIcon = tester.widget<Icon>(find.byIcon(Icons.notifications_none));
-      expect(bellIcon.color, Colors.white);
+      // Verify bell icon has professional dark color
+      final bellIcon = tester.widget<Icon>(find.byIcon(Icons.notifications_outlined));
+      expect(bellIcon.color, const Color(0xFF0F172A));
     });
   });
 
@@ -213,14 +210,14 @@ void main() {
       expect(find.text('Change UPI ID'), findsOneWidget);
 
       // Tap Sign Out button
-      final signOutBtn = find.text('SIGN OUT / SWITCH STORE');
+      final signOutBtn = find.text('SIGN OUT');
       expect(signOutBtn, findsOneWidget);
       await tester.tap(signOutBtn);
       await tester.pumpAndSettle();
 
       // Verify confirmation dialog appears
       expect(find.text('Confirm Sign Out'), findsOneWidget);
-      expect(find.text('Are you sure you want to sign out of Ayesha Footwear POS? You will need to sign in again to access the store.'), findsOneWidget);
+      expect(find.text('Are you sure you want to sign out? You will need to sign in again to access the store.'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
 
       // Tap Cancel -> stays in app

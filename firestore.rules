@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // ROOT-LEVEL BUSINESS COLLECTIONS EXPLICITLY BLOCKED
+    // (Business records must only exist under companies/{companyId}/{collection})
+    // -------------------------------------------------------------------------
+    match /bills/{document=**} {
+      allow read, write: if false;
+    }
+    match /categories/{document=**} {
+      allow read, write: if false;
+    }
+    match /customers/{document=**} {
+      allow read, write: if false;
+    }
+    match /customer_loyalty/{document=**} {
+      allow read, write: if false;
+    }
+    match /loyalty_settings/{document=**} {
+      allow read, write: if false;
+    }
+    match /offer_tracking/{document=**} {
+      allow read, write: if false;
+    }
+    match /offers/{document=**} {
+      allow read, write: if false;
+    }
+    match /products/{document=**} {
+      allow read, write: if false;
+    }
+    match /returns/{document=**} {
+      allow read, write: if false;
+    }
+    match /stock_movements/{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // USER PROFILES: Authenticated owners can only read and write their own doc
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // -------------------------------------------------------------------------
+    // COMPANIES: Multi-tenant authorization enforced by ownerUid
+    // -------------------------------------------------------------------------
+    match /companies/{companyId} {
+      // Allow creation if the ownerUid matches the authenticated caller's UID
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+
+      // Allow read/update/delete only if caller is the owner of the company
+      allow read, update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+
+      // -----------------------------------------------------------------------
+      // SUBCOLLECTIONS (products, bills, customers, categories, returns, offers)
+      // Enforce company owner authorization on all subcollections
+      // -----------------------------------------------------------------------
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid == request.auth.uid;
+      }
+    }
+  }
+}

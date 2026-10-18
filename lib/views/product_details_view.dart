@@ -1,10 +1,9 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../app/app_colors.dart';
 import '../models/product.dart';
+import '../widgets/product_image_widget.dart';
 import '../widgets/shop_widgets.dart';
 
 class ProductDetailsView extends StatelessWidget {
@@ -17,23 +16,37 @@ class ProductDetailsView extends StatelessWidget {
   final Product product;
   final ValueChanged<Product>? onCreateBillWithProduct;
 
+  // Global clean card decoration
+  BoxDecoration _cardDecoration() => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.03),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ],
+    border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+  );
+
   @override
   Widget build(BuildContext context) {
     final isOutOfStock = product.stock <= 0;
     final isLowStock = product.stock > 0 && product.stock <= 3;
 
-    Color stockColor = Colors.green.shade700;
-    Color stockBg = Colors.green.shade50;
+    Color stockColor = const Color(0xFF16A34A); // Green
+    Color stockBg = const Color(0xFFDCFCE7); // Light Green
     String stockStatusText = '${product.stock} In Stock';
 
     if (isOutOfStock) {
-      stockColor = Colors.red.shade700;
-      stockBg = Colors.red.shade50;
-      stockStatusText = 'Out of Stock (0)';
+      stockColor = const Color(0xFFDC2626); // Red
+      stockBg = const Color(0xFFFEE2E2); // Light Red
+      stockStatusText = 'Out of Stock';
     } else if (isLowStock) {
-      stockColor = Colors.orange.shade800;
-      stockBg = Colors.orange.shade50;
-      stockStatusText = 'Low Stock (${product.stock} left)';
+      stockColor = const Color(0xFFD97706); // Amber
+      stockBg = const Color(0xFFFEF3C7); // Light Amber
+      stockStatusText = 'Low Stock (${product.stock})';
     }
 
     return Scaffold(
@@ -41,25 +54,24 @@ class ProductDetailsView extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.deepNavy),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          product.name,
-          style: const TextStyle(
-            color: AppColors.deepNavy,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
+        title: const Text(
+          'Product Details',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
         actions: [
           IconButton(
             tooltip: 'Share Product',
-            icon: const Icon(Icons.share_outlined, color: AppColors.deepNavy),
+            icon: const Icon(Icons.share_outlined, color: Color(0xFF0F172A)),
             onPressed: () {
               final shareText = '''
 👟 ${product.name}
@@ -78,258 +90,259 @@ Available at Ayesha Footwear!
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.all(14), // Reduced from 16
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Product Image Preview if available
-              if (product.imagePath.isNotEmpty &&
-                  File(product.imagePath).existsSync()) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    height: 220,
-                    width: double.infinity,
-                    color: Colors.white,
-                    child: Image.file(
-                      File(product.imagePath),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Hero Product Card
+              // ==========================================
+              // 1. SINGLE MAIN CARD (Image + Details)
+              // ==========================================
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0F172A).withOpacity(0.2),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
+                decoration: _cardDecoration(),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(Icons.checkroom_outlined, color: AppColors.accent, size: 28),
+                    // Product Image (if available)
+                    if (product.imagePath.isNotEmpty || product.imageBase64.isNotEmpty)
+                      Container(
+                        height: 200, // Kept as requested
+                        width: double.infinity,
+                        color: const Color(0xFFF8FAFC),
+                        child: ProductImageWidget(
+                          product: product,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+
+                    // Product Details Section (Compact)
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category & Stock Badge
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppColors.accent.withOpacity(0.2),
+                                  color: const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   product.category.toUpperCase(),
                                   style: const TextStyle(
-                                    color: AppColors.accent,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.8,
+                                    color: Color(0xFF475569),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                product.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: stockBg,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  stockStatusText,
+                                  style: TextStyle(
+                                    color: stockColor,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    const Divider(color: Colors.white12, height: 1),
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Selling Price',
-                              style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w600),
+                          const SizedBox(height: 8), // Reduced from 12
+
+                          // Product Name
+                          Text(
+                            product.name,
+                            style: const TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontSize: 18, // Reduced from 20
+                              fontWeight: FontWeight.w900,
+                              height: 1.2,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              money(product.price),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: stockBg,
-                            borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                          const SizedBox(height: 12), // Reduced from 16
+
+                          // Price & Action Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Icon(
-                                isOutOfStock ? Icons.cancel : Icons.check_circle,
-                                size: 14,
-                                color: stockColor,
-                              ),
-                              const SizedBox(width: 6),
                               Text(
-                                stockStatusText,
-                                style: TextStyle(
-                                  color: stockColor,
-                                  fontSize: 12,
+                                money(product.price),
+                                style: const TextStyle(
+                                  color: Color(0xFF1E3A8A), // Brand Blue
+                                  fontSize: 22, // Reduced from 24
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
+                              Container(
+                                padding: const EdgeInsets.all(8), // Reduced from 10
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.checkroom, color: Color(0xFF2563EB), size: 20), // Reduced from 24
+                              ),
                             ],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 12), // Reduced from 16
 
-              // Available Sizes Section
-              _buildSectionCard(
-                title: 'Available Sizes (${product.sizes.length})',
-                icon: Icons.straighten,
-                child: product.sizes.isEmpty
-                    ? const Text('Standard / Free Size', style: TextStyle(color: Colors.black54))
-                    : Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: product.sizes.map((s) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFCBD5E1)),
+              // ==========================================
+              // 2. ATTRIBUTES CARD (Sizes & Colors)
+              // ==========================================
+              Container(
+                padding: const EdgeInsets.all(14), // Reduced from 16
+                decoration: _cardDecoration(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Sizes
+                    Row(
+                      children: [
+                        const Icon(Icons.straighten, size: 16, color: Color(0xFF64748B)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Available Sizes (${product.sizes.length})',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${product.sizes.length} options',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    product.sizes.isEmpty
+                        ? const Text('Standard / Free Size', style: TextStyle(fontSize: 12, color: Color(0xFF64748B)))
+                        : Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: product.sizes.map((s) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Text(
+                            'Size $s',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11.5,
+                              color: Color(0xFF0F172A),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.straighten, size: 14, color: AppColors.deepNavy),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Size $s',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: AppColors.deepNavy,
-                                  ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12), // Reduced from 16
+                      child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    ),
+
+                    // Colors
+                    Row(
+                      children: [
+                        const Icon(Icons.palette_outlined, size: 16, color: Color(0xFF64748B)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Available Colors (${product.colors.length})',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${product.colors.length} options',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    product.colors.isEmpty
+                        ? const Text('Standard Color', style: TextStyle(fontSize: 12, color: Color(0xFF64748B)))
+                        : Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: product.colors.map((c) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: _guessColor(c),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.black12),
                                 ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                c,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11.5,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
-              // Available Colors Section
-              _buildSectionCard(
-                title: 'Available Colors (${product.colors.length})',
-                icon: Icons.palette_outlined,
-                child: product.colors.isEmpty
-                    ? const Text('Standard Color', style: TextStyle(color: Colors.black54))
-                    : Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: product.colors.map((c) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFCBD5E1)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: _guessColor(c),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.black26),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  c,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: AppColors.deepNavy,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // Article ID & Barcode QR Section
-              _buildSectionCard(
-                title: 'Product Barcode & Article ID',
-                icon: Icons.qr_code_2,
+              // ==========================================
+              // 3. QR & ARTICLE ID CARD
+              // ==========================================
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: _cardDecoration(),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.black12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: QrImageView(
                         data: product.id,
                         version: QrVersions.auto,
-                        size: 90.0,
+                        size: 60.0, // Reduced from 70
                         gapless: true,
                       ),
                     ),
@@ -339,23 +352,28 @@ Available at Ayesha Footwear!
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Article / Item Code',
-                            style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                            'Product Barcode & Article ID',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           SelectableText(
                             product.id,
                             style: const TextStyle(
                               fontWeight: FontWeight.w900,
-                              fontSize: 15,
-                              color: AppColors.deepNavy,
+                              fontSize: 15, // Reduced from 16
+                              color: Color(0xFF1E3A8A),
                               fontFamily: 'monospace',
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           const Text(
-                            'Scan with app camera to auto-fetch during billing or inventory count.',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            'Scan with app camera during billing or inventory count.',
+                            style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), height: 1.3),
                           ),
                         ],
                       ),
@@ -364,23 +382,29 @@ Available at Ayesha Footwear!
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20), // Reduced from 24
 
-              // Action button to bill with this product
+              // ==========================================
+              // 4. ACTION BUTTON
+              // ==========================================
               if (onCreateBillWithProduct != null)
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 50, // Reduced from 52
                   child: FilledButton.icon(
-                    style: orangeButton(),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E3A8A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                     onPressed: () {
                       Navigator.pop(context);
                       onCreateBillWithProduct!(product);
                     },
-                    icon: const Icon(Icons.receipt_long),
+                    icon: const Icon(Icons.receipt_long, size: 18),
                     label: const Text(
                       'CREATE BILL WITH THIS PRODUCT',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, letterSpacing: 0.3),
                     ),
                   ),
                 ),
@@ -388,50 +412,6 @@ Available at Ayesha Footwear!
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required Widget child,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: AppColors.deepNavy),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.deepNavy,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
       ),
     );
   }

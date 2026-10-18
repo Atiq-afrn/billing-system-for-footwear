@@ -917,11 +917,11 @@
 //   }
 // }
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../app/app_colors.dart';
 import '../models/product.dart';
+import '../widgets/product_image_widget.dart';
 import '../widgets/shop_widgets.dart';
 import 'product_details_view.dart';
 
@@ -1219,9 +1219,6 @@ stockText = '${product.stock} left';
 stockIcon = Icons.warning_amber_rounded;
 }
 
-final hasImage = product.imagePath.isNotEmpty &&
-File(product.imagePath).existsSync();
-
 return Material(
 color: Colors.white,
 borderRadius: BorderRadius.circular(16),
@@ -1260,14 +1257,10 @@ color: const Color(0xFFE4EAF2),
 ),
 ),
 clipBehavior: Clip.antiAlias,
-child: hasImage
-? Image.file(
-File(product.imagePath),
-fit: BoxFit.cover,
-errorBuilder: (_, __, ___) =>
-const _FootwearPlaceholder(),
-)
-    : const _FootwearPlaceholder(),
+child: ProductImageWidget(
+product: product,
+placeholder: const _FootwearPlaceholder(),
+),
 ),
 
 const SizedBox(width: 13),

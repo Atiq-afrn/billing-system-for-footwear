@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../app/app_colors.dart';
 import '../models/bill.dart';
 import '../models/customer.dart';
 import '../models/product.dart';
@@ -107,213 +106,121 @@ class ShopShell extends StatelessWidget {
         onOpenQrScanner: () => _openQrScanner(context),
       ),
       body: SafeArea(child: pages[currentTab]),
-      bottomNavigationBar: _buildPaytmStyleBottomNav(context, currentTab),
+      // Using a custom floating bottom nav
+      bottomNavigationBar: _buildFloatingBottomNav(context, currentTab),
     );
   }
 
-  Widget _buildPaytmStyleBottomNav(BuildContext context, int currentTab) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00BAF2).withOpacity(0.10),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, -1),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 66,
-          child: Row(
-            children: [
-              // Tab 0: Home
-              _buildNavButton(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home_rounded,
-                label: 'Home',
-                isSelected: currentTab == 0,
-                onTap: () => viewModel.setTab(0),
-              ),
-
-              // Tab 1: Sales
-              _buildNavButton(
-                icon: Icons.receipt_long_outlined,
-                activeIcon: Icons.receipt_long_rounded,
-                label: 'Sales',
-                isSelected: currentTab == 1,
-                onTap: () => viewModel.setTab(1),
-              ),
-
-              // CENTER: QR Scanner Button with Radiant Blue Dispersion Pulse
-              Expanded(
-                child: Center(
-                  child: InkWell(
-                    onTap: () => _openQrScanner(context),
-                    borderRadius: BorderRadius.circular(32),
-                    child: Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF002E6E), Color(0xFF00BAF2)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF00BAF2).withOpacity(0.55),
-                            blurRadius: 16,
-                            spreadRadius: 3,
-                            offset: const Offset(0, 3),
-                          ),
-                          BoxShadow(
-                            color: const Color(0xFF2563EB).withOpacity(0.35),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.qr_code_scanner, color: Colors.white, size: 24),
-                          SizedBox(height: 1),
-                          Text(
-                            'SCAN',
-                            style: TextStyle(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 8,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Tab 2: Customers
-              _buildNavButton(
-                icon: Icons.people_alt_outlined,
-                activeIcon: Icons.people_alt_rounded,
-                label: 'Customers',
-                isSelected: currentTab == 2,
-                onTap: () => viewModel.setTab(2),
-              ),
-
-              // Tab 3: Products
-              _buildNavButton(
-                icon: Icons.inventory_2_outlined,
-                activeIcon: Icons.inventory_2_rounded,
-                label: 'Products',
-                isSelected: currentTab == 3,
-                onTap: () => viewModel.setTab(3),
+  // ==========================================
+  // NEW CLEAN & COMPACT BOTTOM NAVIGATION
+  // ==========================================
+  Widget _buildFloatingBottomNav(BuildContext context, int currentTab) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Background Bar
+        Container(
+          height: 65 + MediaQuery.of(context).padding.bottom,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, -4),
               ),
             ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                // Tab 0: Home
+                _navItem(Icons.home_outlined, Icons.home_rounded, 'Home', 0, currentTab),
+
+                // Tab 1: Sales
+                _navItem(Icons.receipt_long_outlined, Icons.receipt_long_rounded, 'Sales', 1, currentTab),
+
+                // Empty space for the floating button
+                const SizedBox(width: 60),
+
+                // Tab 2: Customers
+                _navItem(Icons.people_alt_outlined, Icons.people_alt_rounded, 'Customers', 2, currentTab),
+
+                // Tab 3: Products
+                _navItem(Icons.inventory_2_outlined, Icons.inventory_2_rounded, 'Products', 3, currentTab),
+              ],
+            ),
           ),
         ),
-      ),
+
+        // Floating Center QR Button
+        Positioned(
+          top: -22, // Lifts the button above the navbar
+          left: MediaQuery.of(context).size.width / 2 - 30, // Centers it
+          child: GestureDetector(
+            onTap: () => _openQrScanner(context),
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E3A8A), Color(0xFF00BAF2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: Colors.white, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00BAF2).withOpacity(0.4),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.qr_code_scanner,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildNavButton({
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
+  Widget _navItem(IconData icon, IconData activeIcon, String label, int index, int currentTab) {
+    final isSelected = index == currentTab;
+    final color = isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF94A3B8);
+
     return Expanded(
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          decoration: BoxDecoration(
-            // Blue dispersion effect when selected
-            gradient: isSelected
-                ? const LinearGradient(
-                    colors: [
-                      Color(0x3300BAF2), // Dispersed vibrant blue top
-                      Color(0x142563EB), // Soft blue tint bottom
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  )
-                : null,
-            borderRadius: BorderRadius.circular(12),
-            border: isSelected
-                ? Border.all(color: const Color(0x6600BAF2), width: 1.2)
-                : Border.all(color: Colors.transparent, width: 1.2),
-            boxShadow: isSelected
-                ? const [
-                    BoxShadow(
-                      color: Color(0x4400BAF2),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Animated blue dispersion indicator pill on top
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: isSelected ? 16 : 0,
-                height: 2.5,
-                margin: const EdgeInsets.only(bottom: 2),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF00BAF2) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(2),
-                  boxShadow: isSelected
-                      ? const [
-                          BoxShadow(
-                            color: Color(0xFF00BAF2),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-                ),
+        onTap: () => viewModel.setTab(index),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: color,
               ),
-              Icon(
-                isSelected ? activeIcon : icon,
-                color: isSelected ? const Color(0xFF0062D2) : const Color(0xFF64748B),
-                size: 20,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
-                  color: isSelected ? const Color(0xFF0052B4) : const Color(0xFF64748B),
-                  letterSpacing: isSelected ? 0.3 : 0,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -364,7 +271,15 @@ class ShopShell extends StatelessWidget {
   void _handlePreviewPdf(BuildContext context, Bill bill) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => PdfPreviewView(bill: bill)),
+      MaterialPageRoute(
+        builder: (_) => PdfPreviewView(
+          bill: bill,
+          companyName: viewModel.companyName,
+          companyAddress: viewModel.currentCompanyProfile.address,
+          companyMobile: viewModel.currentCompanyProfile.mobile,
+          upiId: viewModel.upiId,
+        ),
+      ),
     );
   }
 
@@ -401,7 +316,7 @@ class ShopShell extends StatelessWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Product added to SQLite database.'),
+                content: Text('Product added & synced with Firestore!'),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -425,7 +340,7 @@ class ShopShell extends StatelessWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Bill saved to SQLite & customer profile updated.'),
+                content: Text('Bill saved & customer profile updated.'),
                 behavior: SnackBarBehavior.floating,
               ),
             );

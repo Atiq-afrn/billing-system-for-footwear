@@ -47,6 +47,7 @@ class ShopViewModel extends ChangeNotifier {
   List<StockMovement> stockMovements = const [];
 
   DateTime selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  DateTime? selectedDate;
 
   final List<String> _categories = [];
 
@@ -103,6 +104,7 @@ class ShopViewModel extends ChangeNotifier {
   Future<void> removeCategory(String category) async {
     final clean = category.trim();
     _categories.removeWhere((c) => c.toLowerCase() == clean.toLowerCase());
+    notifyListeners();
     try {
       await _repository.deleteCategory(clean);
     } catch (_) {}
@@ -111,23 +113,28 @@ class ShopViewModel extends ChangeNotifier {
 
   Future<void> updateUpiId(String newUpi) async {
     await AuthService.instance.updateProfile(upiId: newUpi.trim());
+    CloudSyncService.instance.ensureCompanyProfile(currentCompanyProfile);
     notifyListeners();
   }
 
   UserProfile? get userProfile => AuthService.instance.currentProfile;
   String get companyName =>
-      (userProfile != null && userProfile!.companyName.trim().isNotEmpty)
+      AuthService.instance.activeCompany?.name ??
+      (userProfile != null && userProfile!.companyName.trim().isNotEmpty
           ? userProfile!.companyName.trim()
-          : 'Ayesha Footwear';
+          : 'Ayesha Footwear');
 
   String get upiId =>
-      (userProfile != null && userProfile!.upiId.trim().isNotEmpty)
+      AuthService.instance.activeCompany?.upiId ??
+      (userProfile != null && userProfile!.upiId.trim().isNotEmpty
           ? userProfile!.upiId.trim()
-          : 'atiqullahkhan554@okicici';
+          : 'atiqullahkhan554@okicici');
 
-  String get companyId => userProfile?.effectiveCompanyId ?? 'comp_ayesha_footwear';
+  String get companyId => AuthService.instance.activeCompanyId;
 
-  CompanyProfile get currentCompanyProfile => CompanyProfile(
+  CompanyProfile get currentCompanyProfile =>
+      AuthService.instance.activeCompany ??
+      CompanyProfile(
         id: companyId,
         name: companyName,
         ownerUid: userProfile?.uid ?? '',
@@ -173,8 +180,28 @@ class ShopViewModel extends ChangeNotifier {
 
   void setSelectedMonth(DateTime month) {
     selectedMonth = DateTime(month.year, month.month);
+    selectedDate = null;
     notifyListeners();
   }
+
+  void setSelectedDate(DateTime? date) {
+    selectedDate = date;
+    if (date != null) {
+      selectedMonth = DateTime(date.year, date.month);
+    }
+    notifyListeners();
+  }
+
+  List<Bill> get billsForSelectedDate {
+    final target = selectedDate ?? DateTime.now();
+    return bills.where((b) =>
+        b.time.year == target.year &&
+        b.time.month == target.month &&
+        b.time.day == target.day).toList();
+  }
+
+  int get salesForSelectedDate =>
+      billsForSelectedDate.fold(0, (sum, b) => sum + b.total);
 
   DateTime get previousMonth => DateTime(selectedMonth.year, selectedMonth.month - 1);
 
@@ -257,7 +284,7 @@ class ShopViewModel extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   List<TopProductSale> get topSellingProducts {
     final Map<String, TopProductSale> map = {};
-    final relevantBills = billsForSelectedMonth.isNotEmpty ? billsForSelectedMonth : bills;
+    final relevantBills = billsForSelectedMonth;
 
     for (final b in relevantBills) {
       for (final it in b.allItems) {
@@ -563,8 +590,17 @@ class ShopViewModel extends ChangeNotifier {
       CloudSyncService.instance.addListener(_onSyncChanged);
       AuthService.instance.removeListener(_onAuthChanged);
       AuthService.instance.addListener(_onAuthChanged);
+
+      if (databaseService != null) {
+        final db = await databaseService!.database;
+        await databaseService!.seedCompanyDefaults(db, companyId);
+      }
+
       await refresh();
       error = null;
+
+      // Start real-time Firestore synchronization
+      _setupFirestoreRealtimeListeners();
 
       // Asynchronous non-blocking cloud synchronization
       _triggerBackgroundCloudSync();
@@ -576,11 +612,41 @@ class ShopViewModel extends ChangeNotifier {
     }
   }
 
+  void _setupFirestoreRealtimeListeners() {
+    if (databaseService == null) return;
+    CloudSyncService.instance.startRealtimeSync(
+      companyId: companyId,
+      databaseService: databaseService!,
+      onDataRefreshed: () async {
+        await refresh();
+        notifyListeners();
+      },
+      onCompanyRefreshed: (map) {
+        final name = (map['name'] ?? map['companyName']) as String?;
+        final upi = (map['upiId'] ?? map['upi_id']) as String?;
+        final mobile = (map['mobile'] ?? map['phone']) as String?;
+        if ((name != null && name.trim().isNotEmpty && name.trim() != companyName) ||
+            (upi != null && upi.trim().isNotEmpty && upi.trim() != upiId)) {
+          AuthService.instance.updateProfile(
+            companyName: name?.trim(),
+            upiId: upi?.trim(),
+            mobile: mobile?.trim(),
+          );
+        }
+      },
+    );
+  }
+
   void _onSyncChanged() {
     notifyListeners();
   }
 
   void _onAuthChanged() {
+    if (AuthService.instance.isAuthenticated) {
+      _setupFirestoreRealtimeListeners();
+    } else {
+      CloudSyncService.instance.stopRealtimeListeners();
+    }
     notifyListeners();
   }
 
@@ -591,7 +657,33 @@ class ShopViewModel extends ChangeNotifier {
   }
 
   Future<void> refreshUserProfile() async {
+    await onUserAuthenticated();
+  }
+
+  Future<void> onUserAuthenticated() async {
+    isLoading = true;
     notifyListeners();
+    try {
+      if (databaseService != null) {
+        final db = await databaseService!.database;
+        await databaseService!.seedCompanyDefaults(db, companyId);
+      }
+
+      // Connect real-time listeners for this authenticated user's company and root products
+      _setupFirestoreRealtimeListeners();
+
+      // Pull from Firestore to populate local SQLite and restore images
+      await syncWithCloud();
+
+      // Refresh local UI state
+      await refresh();
+      error = null;
+    } catch (e) {
+      debugPrint('Error on user authentication sync: $e');
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> syncWithCloud() async {
@@ -609,24 +701,50 @@ class ShopViewModel extends ChangeNotifier {
   }
 
   Future<List<CompanyProfile>> fetchOwnerCompanies() async {
-    final uid = userProfile?.uid;
-    if (uid == null || uid.isEmpty) return [currentCompanyProfile];
-    final list = await CloudSyncService.instance.fetchCompaniesForOwner(uid);
+    final list = await AuthService.instance.fetchAuthorizedCompanies();
     if (list.isEmpty) return [currentCompanyProfile];
-    if (!list.any((c) => c.id == companyId)) {
-      return [currentCompanyProfile, ...list];
-    }
     return list;
   }
 
+  void _clearInMemoryData() {
+    products = const [];
+    customers = const [];
+    bills = const [];
+    returns = const [];
+    offers = const [];
+    offerTracking = const [];
+    customerLoyaltyData = {};
+    stockMovements = const [];
+    _categories.clear();
+  }
+
   Future<void> switchCompany(CompanyProfile company) async {
-    await AuthService.instance.updateProfile(
-      companyName: company.name,
-      companyId: company.id,
-      upiId: company.upiId,
-    );
+    // 1. Stop existing realtime listeners to decouple from previous company
+    CloudSyncService.instance.stopRealtimeListeners();
+
+    // 2. Clear in-memory company data completely to prevent cross-company data leakage
+    _clearInMemoryData();
     notifyListeners();
+
+    // 3. Set active company in AuthService (persists in SharedPreferences)
+    await AuthService.instance.selectCompany(company);
+
+    // 4. Ensure starter footwear defaults and categories exist for this store
+    if (databaseService != null) {
+      final db = await databaseService!.database;
+      await databaseService!.seedCompanyDefaults(db, company.id);
+    }
+
+    // 5. Connect realtime Firestore listeners for the new company
+    _setupFirestoreRealtimeListeners();
+
+    // 6. Load isolated records for the new company from SQLite
+    await refresh();
+
+    // 7. Trigger two-way sync for the new company
     await syncWithCloud();
+
+    notifyListeners();
   }
 
   Future<void> createAndSwitchCompany({
@@ -635,36 +753,25 @@ class ShopViewModel extends ChangeNotifier {
     String mobile = '',
     String address = '',
   }) async {
-    final slug = name.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
-    final newId = 'comp_${slug.isNotEmpty ? slug : "store"}_${DateTime.now().millisecondsSinceEpoch % 10000}';
-    final newCompany = CompanyProfile(
-      id: newId,
-      name: name.trim(),
-      ownerUid: userProfile?.uid ?? '',
-      mobile: mobile.trim().isNotEmpty ? mobile.trim() : (userProfile?.mobile ?? ''),
-      upiId: upiId.trim(),
-      createdAt: DateTime.now(),
-      address: address.trim(),
+    final newCompany = await AuthService.instance.registerNewBranch(
+      name: name,
+      upiId: upiId,
+      mobile: mobile,
+      address: address,
     );
+    await switchCompany(newCompany);
+  }
 
-    CloudSyncService.instance.ensureCompanyProfile(newCompany);
-
-    final currentOwned = [...?userProfile?.ownedCompanyIds];
-    if (!currentOwned.contains(newId)) currentOwned.add(newId);
-
-    await AuthService.instance.updateProfile(
-      companyName: newCompany.name,
-      companyId: newCompany.id,
-      upiId: newCompany.upiId,
-      ownedCompanyIds: currentOwned,
-    );
-
+  Future<void> logout() async {
+    CloudSyncService.instance.stopRealtimeListeners();
+    _clearInMemoryData();
+    await AuthService.instance.logout();
     notifyListeners();
-    await syncWithCloud();
   }
 
   @override
   void dispose() {
+    CloudSyncService.instance.stopRealtimeListeners();
     CloudSyncService.instance.removeListener(_onSyncChanged);
     AuthService.instance.removeListener(_onAuthChanged);
     super.dispose();
