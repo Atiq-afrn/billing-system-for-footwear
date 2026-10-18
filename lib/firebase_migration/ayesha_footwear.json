@@ -1,0 +1,220 @@
+{
+  "companyId": "comp_ayesha_footwear",
+  "exportedAt": "2026-10-13T01:00:00.000Z",
+  "tables": {
+    "categories": [
+      { "name": "Men Formal" },
+      { "name": "Men Casual" },
+      { "name": "Men Sports" },
+      { "name": "Women Heels" },
+      { "name": "Women Flats" },
+      { "name": "Women Sandals" },
+      { "name": "Kids" },
+      { "name": "Accessories" }
+    ],
+    "products": [
+      {
+        "id": "PROD-001",
+        "name": "Italian Formal Leather Shoes",
+        "category": "Men Formal",
+        "stock": 15,
+        "price": 2499,
+        "sizes": "6,7,8,9,10",
+        "colors": "Black,Brown,Tan",
+        "image_path": null
+      },
+      {
+        "id": "PROD-002",
+        "name": "Air Comfort Running Sneakers",
+        "category": "Men Sports",
+        "stock": 20,
+        "price": 1899,
+        "sizes": "7,8,9,10,11",
+        "colors": "White,Black,Navy Blue",
+        "image_path": null
+      },
+      {
+        "id": "PROD-003",
+        "name": "Designer Velvet High Heels",
+        "category": "Women Heels",
+        "stock": 12,
+        "price": 2199,
+        "sizes": "5,6,7,8",
+        "colors": "Red,Black,Gold",
+        "image_path": null
+      },
+      {
+        "id": "PROD-004",
+        "name": "Casual Comfort Daily Flat Sandals",
+        "category": "Women Flats",
+        "stock": 25,
+        "price": 999,
+        "sizes": "4,5,6,7,8",
+        "colors": "Beige,Pink,Tan",
+        "image_path": null
+      }
+    ],
+    "customers": [
+      {
+        "id": "CUST-001",
+        "name": "Faizan Khan",
+        "mobile": "9876543210",
+        "size": "8",
+        "colors": "Black",
+        "last_item": "Italian Formal Leather Shoes",
+        "total_spent": 4998,
+        "visits": 2,
+        "note": "Preferred regular buyer"
+      }
+    ],
+    "bills": [
+      {
+        "id": "BILL-1001",
+        "customer_id": "CUST-001",
+        "product_id": "PROD-001",
+        "customer_name": "Faizan Khan",
+        "mobile": "9876543210",
+        "item": "Italian Formal Leather Shoes",
+        "size": "8",
+        "color": "Black",
+        "qty": 2,
+        "price": 2499,
+        "discount": 0,
+        "total": 4998,
+        "pay_mode": "UPI",
+        "note": "Paid via QR",
+        "items_json": "[{\"productId\":\"PROD-001\",\"productName\":\"Italian Formal Leather Shoes\",\"size\":\"8\",\"color\":\"Black\",\"qty\":2,\"price\":2499,\"total\":4998}]",
+        "created_at": "2026-10-12T14:30:00.000Z"
+      }
+    ],
+    "customer_loyalty": [
+      {
+        "customer_id": "CUST-001",
+        "points": 50,
+        "points_redeemed": 0,
+        "marketing_consent": 1,
+        "notes": "Welcome points awarded",
+        "updated_at": "2026-10-12T14:30:00.000Z"
+      }
+    ],
+    "loyalty_settings": [
+      {
+        "id": 1,
+        "points_per_100_spent": 1,
+        "point_value_rupees": 1.0,
+        "min_points_to_redeem": 50,
+        "welcome_bonus_points": 50,
+        "high_spending_threshold": 5000,
+        "loyal_visits_threshold": 3,
+        "inactive_days_threshold": 45
+      }
+    ],
+    "offers": [
+      {
+        "id": "OFFER-001",
+        "code": "WELCOME10",
+        "title": "New Customer Welcome Gift",
+        "discount_type": "percentage",
+        "discount_value": 10.0,
+        "min_spend": 999,
+        "applicable_category": "All Categories",
+        "target_segment": "New Customer",
+        "valid_from": "2026-10-13T00:00:00.000Z",
+        "valid_until": "2026-11-27T00:00:00.000Z",
+        "message_template": "",
+        "is_active": 1
+      },
+      {
+        "id": "OFFER-002",
+        "code": "LOYAL15",
+        "title": "Loyal Shopper Celebration",
+        "discount_type": "percentage",
+        "discount_value": 15.0,
+        "min_spend": 1499,
+        "applicable_category": "All Categories",
+        "target_segment": "Loyal Customer",
+        "valid_from": "2026-10-13T00:00:00.000Z",
+        "valid_until": "2026-11-27T00:00:00.000Z",
+        "message_template": "",
+        "is_active": 1
+      },
+      {
+        "id": "OFFER-003",
+        "code": "VIP200",
+        "title": "High-Spending VIP Privilege",
+        "discount_type": "fixed",
+        "discount_value": 200.0,
+        "min_spend": 2499,
+        "applicable_category": "All Categories",
+        "target_segment": "High-Spending VIP",
+        "valid_from": "2026-10-13T00:00:00.000Z",
+        "valid_until": "2026-11-27T00:00:00.000Z",
+        "message_template": "",
+        "is_active": 1
+      }
+    ],
+    "offer_tracking": [
+      {
+        "id": "TRACK-001",
+        "offer_id": "OFFER-001",
+        "offer_code": "WELCOME10",
+        "customer_id": "CUST-001",
+        "customer_name": "Faizan Khan",
+        "mobile": "9876543210",
+        "sent_at": "2026-10-12T15:00:00.000Z",
+        "is_redeemed": 0,
+        "redeemed_at": null,
+        "bill_id": null,
+        "sales_generated": 0
+      }
+    ],
+    "returns": [
+      {
+        "id": "RET-001",
+        "bill_id": "BILL-1001",
+        "customer_id": "CUST-001",
+        "customer_name": "Faizan Khan",
+        "mobile": "9876543210",
+        "type": "return",
+        "status": "completed",
+        "return_reason": "Defective Stitching",
+        "product_condition": "damaged_quarantine",
+        "returned_total_amount": 2499,
+        "exchange_total_amount": 0,
+        "net_amount": 2499,
+        "refund_method": "UPI",
+        "refund_status": "refunded",
+        "transaction_ref": "UPI_REF_9812",
+        "approved_by": "Store Owner",
+        "rejection_reason": null,
+        "created_at": "2026-10-13T00:30:00.000Z",
+        "processed_at": "2026-10-13T00:35:00.000Z",
+        "notes": "Quarantined in back warehouse",
+        "items_json": "[{\"productId\":\"PROD-001\",\"productName\":\"Italian Formal Leather Shoes\",\"size\":\"8\",\"color\":\"Black\",\"qty\":1,\"unitPrice\":2499,\"subtotal\":2499,\"reason\":\"Defective Stitching\",\"condition\":\"damaged_quarantine\"}]",
+        "exchange_items_json": "[]"
+      }
+    ],
+    "stock_movements": [
+      {
+        "id": "MOV-001",
+        "product_id": "PROD-001",
+        "product_name": "Italian Formal Leather Shoes",
+        "movement_type": "sale",
+        "qty_change": -2,
+        "reference_id": "BILL-1001",
+        "created_at": "2026-10-12T14:30:00.000Z",
+        "note": "POS Sale"
+      },
+      {
+        "id": "MOV-002",
+        "product_id": "PROD-001",
+        "product_name": "Italian Formal Leather Shoes",
+        "movement_type": "quarantine",
+        "qty_change": 0,
+        "reference_id": "RET-001",
+        "created_at": "2026-10-13T00:35:00.000Z",
+        "note": "Damaged return quarantined"
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+name: firebase_migration
+description: A one-time script to migrate local JSON to Firestore
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  dart_firebase_admin: ^0.4.1

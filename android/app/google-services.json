@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "997232062778",
+    "project_id": "smart-app-platform",
+    "storage_bucket": "smart-app-platform.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:997232062778:android:5dcde865ababfbb77de003",
+        "android_client_info": {
+          "package_name": "com.example.ayesha_footwear"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbhC1GbrFnARNXZBqPIUVpq0AdDxQnL-g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
