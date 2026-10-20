@@ -141,7 +141,7 @@ static const PdfColor _white = PdfColors.white;
 
 Future<Uint8List> buildBillPdf(
 Bill bill, {
-String companyName = 'Ayesha Footwear',
+    String companyName = 'Footwear Store',
 String? address,
 String? mobile,
 String? upiId,

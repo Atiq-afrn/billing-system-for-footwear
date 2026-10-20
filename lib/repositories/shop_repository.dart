@@ -12,6 +12,7 @@ abstract class ShopRepository {
   Future<List<Bill>> fetchBills();
   Future<Bill> saveBill(BillDraft draft);
   Future<Product> saveProduct(ProductDraft draft);
+  Future<void> deleteProduct(String productId);
   Future<void> updateProductStock(String productId, int newStock);
   Future<List<String>> fetchCategories();
   Future<void> addCategory(String name);

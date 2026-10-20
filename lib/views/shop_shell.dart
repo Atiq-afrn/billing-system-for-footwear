@@ -63,6 +63,9 @@ class ShopShell extends StatelessWidget {
         onStockAlerts: () => viewModel.setTab(5),
         companyName: viewModel.companyName,
         onCreateBillWithProduct: (product) => _showCreateBill(context, preselectedProduct: product),
+        onDeleteProduct: (product) async {
+          await viewModel.deleteProduct(product.id);
+        },
       ),
       // 4: Dedicated Tools & Operations View
       ToolsOperationsView(

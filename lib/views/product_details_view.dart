@@ -10,11 +10,15 @@ class ProductDetailsView extends StatelessWidget {
   const ProductDetailsView({
     super.key,
     required this.product,
+    this.companyName,
     this.onCreateBillWithProduct,
+    this.onDeleteProduct,
   });
 
   final Product product;
+  final String? companyName;
   final ValueChanged<Product>? onCreateBillWithProduct;
+  final Future<void> Function(Product product)? onDeleteProduct;
 
   // Global clean card decoration
   BoxDecoration _cardDecoration() => BoxDecoration(
@@ -69,10 +73,17 @@ class ProductDetailsView extends StatelessWidget {
           ),
         ),
         actions: [
+          if (onDeleteProduct != null)
+            IconButton(
+              tooltip: 'Delete Product',
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
+              onPressed: () => _confirmDelete(context),
+            ),
           IconButton(
             tooltip: 'Share Product',
             icon: const Icon(Icons.share_outlined, color: Color(0xFF0F172A)),
             onPressed: () {
+              final storeDisplay = companyName?.isNotEmpty == true ? companyName! : 'our store';
               final shareText = '''
 👟 ${product.name}
 💰 Price: ${money(product.price)}
@@ -81,7 +92,7 @@ class ProductDetailsView extends StatelessWidget {
 📏 Sizes: ${product.sizes.join(', ')}
 🎨 Colors: ${product.colors.join(', ')}
 
-Available at Ayesha Footwear!
+Available at $storeDisplay!
 ''';
               Share.share(shareText);
             },
@@ -408,12 +419,153 @@ Available at Ayesha Footwear!
                     ),
                   ),
                 ),
+              if (onDeleteProduct != null) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFDC2626),
+                      side: const BorderSide(color: Color(0xFFFECACA), width: 1.2),
+                      backgroundColor: const Color(0xFFFEF2F2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _confirmDelete(context),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text(
+                      'DELETE PRODUCT FROM CATALOG',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.delete_forever_rounded, color: Color(0xFFDC2626), size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Delete Product?',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete "${product.name}"?',
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This product will be permanently removed from your inventory, local database, and cloud sync across all connected devices.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await onDeleteProduct?.call(product);
+        if (context.mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF0F172A),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Color(0xFF22C55E), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Product "${product.name}" deleted from inventory and cloud.'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.red.shade700,
+              content: Text('Failed to delete product: $e'),
+            ),
+          );
+        }
+      }
+    }
   }
 
   Color _guessColor(String colorName) {

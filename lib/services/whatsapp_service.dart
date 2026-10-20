@@ -16,7 +16,7 @@ class WhatsAppService {
     return digitsOnly;
   }
 
-  Future<bool> sendBillWhatsApp(Bill bill, {String companyName = 'Ayesha Footwear'}) async {
+  Future<bool> sendBillWhatsApp(Bill bill, {String companyName = 'Footwear Store'}) async {
     final cleanMobile = sanitizeMobile(bill.mobile);
     final dateStr =
         '${bill.time.day.toString().padLeft(2, '0')}-${bill.time.month.toString().padLeft(2, '0')}-${bill.time.year}';
@@ -68,7 +68,7 @@ class WhatsAppService {
     }
   }
 
-  Future<bool> sendCustomerOffer(Customer customer, {String companyName = 'Ayesha Footwear'}) async {
+  Future<bool> sendCustomerOffer(Customer customer, {String companyName = 'Footwear Store'}) async {
     final cleanMobile = sanitizeMobile(customer.mobile);
     final text = '''
 Hi ${customer.name}! 👋
@@ -92,7 +92,7 @@ Visit our store or reply to this message to reserve your pair!
   Future<bool> sendPersonalizedOffer({
     required CustomerLoyaltyProfile profile,
     required Offer offer,
-    String companyName = 'Ayesha Footwear',
+    String companyName = 'Footwear Store',
   }) async {
     final cleanMobile = sanitizeMobile(profile.customer.mobile);
     final message = offer.generateMessage(
@@ -114,7 +114,7 @@ Visit our store or reply to this message to reserve your pair!
 
   Future<bool> sendReturnExchangeReceiptWhatsApp({
     required ReturnRecord record,
-    String companyName = 'Ayesha Footwear',
+    String companyName = 'Footwear Store',
   }) async {
     final cleanMobile = sanitizeMobile(record.mobile);
     final dateStr =
@@ -193,17 +193,17 @@ Visit our store or reply to this message to reserve your pair!
     }
   }
 
-  Future<void> sharePdfFile(Uint8List pdfBytes, String fileName) async {
+  Future<void> sharePdfFile(Uint8List pdfBytes, String fileName, {String companyName = 'Footwear Store'}) async {
     final xFile = XFile.fromData(
       pdfBytes,
       name: fileName,
       mimeType: 'application/pdf',
     );
-    await Share.shareXFiles([xFile], text: 'Invoice $fileName from Ayesha Footwear');
+    await Share.shareXFiles([xFile], text: 'Invoice $fileName from $companyName');
   }
 
-  Future<void> shareExcelFile(String filePath) async {
+  Future<void> shareExcelFile(String filePath, {String companyName = 'Footwear Store'}) async {
     final xFile = XFile(filePath);
-    await Share.shareXFiles([xFile], text: 'Ayesha Footwear Data Export');
+    await Share.shareXFiles([xFile], text: '$companyName Data Export');
   }
 }

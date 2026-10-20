@@ -93,7 +93,7 @@ class Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayTitle = title != null && title!.trim().isNotEmpty
         ? title!.trim()
-        : 'Ayesha Footwear';
+        : 'Footwear Store';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),

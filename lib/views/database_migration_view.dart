@@ -128,7 +128,7 @@ class _DatabaseMigrationViewState extends State<DatabaseMigrationView> {
             action: SnackBarAction(
               label: 'SHARE',
               textColor: Colors.white,
-              onPressed: () => Share.shareXFiles([XFile(path)], text: 'Ayesha Footwear SQLite Database Dump'),
+              onPressed: () => Share.shareXFiles([XFile(path)], text: 'Store SQLite Database Dump'),
             ),
           ),
         );
@@ -214,7 +214,7 @@ class _DatabaseMigrationViewState extends State<DatabaseMigrationView> {
           if (result.exportedJsonPath != null)
             TextButton.icon(
               onPressed: () {
-                Share.shareXFiles([XFile(result.exportedJsonPath!)], text: 'Ayesha Footwear SQLite Database Dump');
+                Share.shareXFiles([XFile(result.exportedJsonPath!)], text: 'Store SQLite Database Dump');
               },
               icon: const Icon(Icons.share, size: 16),
               label: const Text('Share JSON Dump'),

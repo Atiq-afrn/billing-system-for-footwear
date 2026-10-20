@@ -75,7 +75,7 @@ class _ChangeUpiViewState extends State<ChangeUpiView> {
   String _getUserEmail() {
     return widget.viewModel.userProfile?.email ??
         AuthService.instance.currentProfile?.email ??
-        'owner@ayeshafootwear.com';
+        'owner@store.com';
   }
 
   String _getOwnerName() {
@@ -597,7 +597,7 @@ class _ChangeUpiViewState extends State<ChangeUpiView> {
           const SizedBox(height: 6),
           Text(
             _isPasswordMode
-                ? 'Enter your Firebase account password used for logging into Ayesha Footwear.'
+                ? 'Enter your account password used for logging into your store account.'
                 : 'A 6-digit security code was generated for your registered email: $email',
             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.3),
           ),

@@ -8,6 +8,7 @@ import 'package:ayesha_footwear/services/auth_service.dart';
 import 'package:ayesha_footwear/services/database_service.dart';
 import 'package:ayesha_footwear/services/excel_export_service.dart';
 import 'package:ayesha_footwear/view_models/shop_view_model.dart';
+import 'package:ayesha_footwear/views/add_product_sheet.dart';
 import 'package:ayesha_footwear/views/change_upi_view.dart';
 import 'package:ayesha_footwear/widgets/shop_drawer.dart';
 import 'package:ayesha_footwear/widgets/shop_widgets.dart';
@@ -225,5 +226,50 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Confirm Sign Out'), findsNothing);
     });
+
+    testWidgets('AddProductSheet adds new category via dialog without controller disposal exception', (WidgetTester tester) async {
+      String? addedCategory;
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AddProductSheet(
+              onSave: (_) {},
+              categories: const ['Men Formal', 'Men Casual'],
+              onAddCategory: (cat) {
+                addedCategory = cat;
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Tap 'Add' button to open dialog
+      final addCategoryBtn = find.text('Add');
+      expect(addCategoryBtn, findsWidgets);
+      await tester.tap(addCategoryBtn.first);
+      await tester.pumpAndSettle();
+
+      // Verify Dialog is open
+      expect(find.text('New category'), findsOneWidget);
+      expect(find.text('Add category'), findsOneWidget);
+
+      // Enter category name
+      await tester.enterText(find.widgetWithText(TextField, 'Category name'), 'Formal Loafers');
+      await tester.pump();
+
+      // Tap 'Add category' button
+      await tester.tap(find.text('Add category'));
+      await tester.pumpAndSettle();
+
+      // Verify dialog is closed and callback was triggered without any controller disposal crash
+      expect(find.text('New category'), findsNothing);
+      expect(addedCategory, equals('Formal Loafers'));
+    });
   });
 }
+

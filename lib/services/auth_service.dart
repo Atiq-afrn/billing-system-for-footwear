@@ -35,6 +35,23 @@ class AuthService extends ChangeNotifier {
   static const String _prefKey = 'cached_user_profile';
   static const String _loginFlagKey = 'is_user_logged_in';
   static const String _activeCompanyKey = 'active_company_id';
+  static const String _splashCompletedKey = 'has_completed_onboarding_splash';
+  static const String _registeredKey = 'has_user_registered';
+
+  bool _hasCompletedSplash = false;
+  bool get hasCompletedSplash => _hasCompletedSplash || _isUserRegistered || isAuthenticated;
+
+  bool _isUserRegistered = false;
+  bool get isUserRegistered => _isUserRegistered;
+
+  Future<void> completeSplash() async {
+    _hasCompletedSplash = true;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_splashCompletedKey, true);
+    } catch (_) {}
+  }
 
   Future<void> initialize() async {
     try {
@@ -48,6 +65,13 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Firebase init notice: $e');
     }
+
+    // Load splash & registration state
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _hasCompletedSplash = prefs.getBool(_splashCompletedKey) ?? false;
+      _isUserRegistered = prefs.getBool(_registeredKey) ?? false;
+    } catch (_) {}
 
     // Load locally cached profile & active company (offline-first & instant startup)
     await _loadCachedProfile();
@@ -216,6 +240,10 @@ class AuthService extends ChangeNotifier {
     await _cacheProfile(profile);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_activeCompanyKey, companyId);
+    await prefs.setBool(_registeredKey, true);
+    await prefs.setBool(_splashCompletedKey, true);
+    _isUserRegistered = true;
+    _hasCompletedSplash = true;
 
     notifyListeners();
     return profile;
@@ -272,8 +300,8 @@ class AuthService extends ChangeNotifier {
       name: email.split('@').first,
       mobile: '',
       email: email.trim(),
-      companyName: 'Ayesha Footwear',
-      upiId: 'atiqullahkhan554@okicici',
+      companyName: 'Footwear Store',
+      upiId: '',
       createdAt: DateTime.now(),
     );
 
@@ -527,10 +555,10 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<UserProfile> setDemoProfile({
-    String name = 'Atiqu Khan',
-    String companyName = 'Ayesha Footwear',
-    String upiId = 'atiqullahkhan554@okicici',
-    String email = 'atiqu@ayeshafootwear.com',
+    String name = 'Store Owner',
+    String companyName = 'Footwear Store',
+    String upiId = '',
+    String email = 'owner@store.com',
     String mobile = '9876543210',
   }) async {
     final profile = UserProfile(
@@ -552,6 +580,8 @@ class AuthService extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
     _authorizedCompanies = [_activeCompany!];
+    _hasCompletedSplash = true;
+    _isUserRegistered = true;
     await _cacheProfile(profile);
     notifyListeners();
     return profile;

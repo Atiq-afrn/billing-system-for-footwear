@@ -102,6 +102,10 @@ class MockShopRepository implements ShopRepository {
   @override
   Future<Product> saveProduct(dynamic draft) async => products.first;
   @override
+  Future<void> deleteProduct(String productId) async {
+    products.removeWhere((p) => p.id == productId);
+  }
+  @override
   Future<void> updateProductStock(String productId, int newStock) async {
     final idx = products.indexWhere((p) => p.id == productId);
     if (idx != -1) {

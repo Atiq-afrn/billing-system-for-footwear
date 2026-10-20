@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app_colors.dart';
 import '../services/cloud_sync_service.dart';
 import '../view_models/shop_view_model.dart';
+import '../views/app_splash_view.dart';
 import '../views/change_upi_view.dart';
 import '../views/database_migration_view.dart';
 import '../views/loyal_customers_offers_view.dart';
@@ -234,6 +235,27 @@ class ShopDrawer extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChangeUpiView(viewModel: viewModel),
+                      ),
+                    );
+                  },
+                ),
+
+                _navItem(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'App Goals & Overview',
+                  badge: 'TOUR',
+                  badgeColor: const Color(0xFFF97316),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AppSplashView(
+                          isTourMode: true,
+                          storeName: viewModel.companyName,
+                          onGetStarted: () => Navigator.pop(context),
+                          onSignIn: () => Navigator.pop(context),
+                        ),
                       ),
                     );
                   },

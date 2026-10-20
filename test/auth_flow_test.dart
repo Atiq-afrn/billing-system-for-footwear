@@ -103,7 +103,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check header title and brand
-      expect(find.text('AYESHA FOOTWEAR'), findsOneWidget);
+      expect(find.text('FOOTWEAR POS'), findsOneWidget);
       expect(find.text('Sign In'), findsOneWidget);
       expect(find.text('Register Company'), findsOneWidget);
       expect(find.text('SIGN IN'), findsOneWidget);

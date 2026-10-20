@@ -27,7 +27,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Ayesha Footwear'), findsWidgets);
+    expect(find.text('Footwear Store'), findsWidgets);
     expect(find.text('Create Bill'), findsWidgets);
     expect(find.text("Today's Sales"), findsWidgets);
 

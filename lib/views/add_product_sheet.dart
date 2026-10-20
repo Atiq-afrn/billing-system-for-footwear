@@ -327,112 +327,31 @@ child: Icon(icon, color: foreground, size: 19),
 );
 }
 
-void _showAddCategoryDialog() {
-final catController = TextEditingController();
+Future<void> _showAddCategoryDialog() async {
+  final val = await showDialog<String>(
+    context: context,
+    builder: (ctx) => const _AddCategoryDialog(),
+  );
 
-showDialog(
-context: context,
-builder: (ctx) => AlertDialog(
-backgroundColor: Colors.white,
-surfaceTintColor: Colors.transparent,
-shape: RoundedRectangleBorder(
-borderRadius: BorderRadius.circular(18),
-),
-title: const Text(
-'New category',
-style: TextStyle(
-fontSize: 17,
-fontWeight: FontWeight.w800,
-color: _heading,
-),
-),
-content: Column(
-mainAxisSize: MainAxisSize.min,
-crossAxisAlignment: CrossAxisAlignment.start,
-children: [
-const Text(
-'Create a category for your inventory.',
-style: TextStyle(
-fontSize: 12,
-color: _muted,
-),
-),
-const SizedBox(height: 14),
-TextField(
-controller: catController,
-autofocus: true,
-textCapitalization: TextCapitalization.words,
-style: const TextStyle(fontSize: 13),
-decoration: _inputDecoration(
-label: 'Category name',
-hint: 'e.g. School Shoes',
-icon: Icons.category_outlined,
-),
-),
-],
-),
-actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-actions: [
-TextButton(
-onPressed: () => Navigator.pop(ctx),
-child: const Text(
-'Cancel',
-style: TextStyle(
-fontSize: 12,
-color: _muted,
-),
-),
-),
-FilledButton(
-style: orangeButton().copyWith(
-padding: const WidgetStatePropertyAll(
-EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-),
-shape: WidgetStatePropertyAll(
-RoundedRectangleBorder(
-borderRadius: BorderRadius.circular(10),
-),
-),
-),
-onPressed: () {
-final val = catController.text.trim();
+  if (val != null && val.isNotEmpty) {
+    final existing = availableCategories.firstWhere(
+      (item) => item.toLowerCase() == val.toLowerCase(),
+      orElse: () => '',
+    );
 
-if (val.isNotEmpty) {
-final existing = availableCategories.firstWhere(
-(item) => item.toLowerCase() == val.toLowerCase(),
-orElse: () => '',
-);
+    if (existing.isEmpty) {
+      setState(() {
+        availableCategories.add(val);
+        category = val;
+      });
 
-if (existing.isEmpty) {
-setState(() {
-availableCategories.add(val);
-category = val;
-});
-
-widget.onAddCategory?.call(val);
-} else {
-setState(() {
-category = existing;
-});
-}
-}
-
-Navigator.pop(ctx);
-catController.dispose();
-},
-child: const Text(
-'Add category',
-style: TextStyle(
-fontSize: 12,
-fontWeight: FontWeight.w700,
-),
-),
-),
-],
-),
-).then((_) {
-catController.dispose();
-});
+      widget.onAddCategory?.call(val);
+    } else {
+      setState(() {
+        category = existing;
+      });
+    }
+  }
 }
 
 void _showManageCategoriesDialog() {
@@ -1546,4 +1465,141 @@ fontWeight: FontWeight.w700,
 );
 }
 }
+
+class _AddCategoryDialog extends StatefulWidget {
+  const _AddCategoryDialog();
+
+  @override
+  State<_AddCategoryDialog> createState() => _AddCategoryDialogState();
+}
+
+class _AddCategoryDialogState extends State<_AddCategoryDialog> {
+  late final TextEditingController _catController;
+
+  @override
+  void initState() {
+    super.initState();
+    _catController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _catController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+      ),
+      title: const Text(
+        'New category',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: _AddProductSheetState._heading,
+        ),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Create a category for your inventory.',
+              style: TextStyle(
+                fontSize: 12,
+                color: _AddProductSheetState._muted,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _catController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Category name',
+                hintText: 'e.g. School Shoes',
+                prefixIcon: const Icon(Icons.category_outlined, size: 18, color: _AddProductSheetState._muted),
+                isDense: true,
+                filled: true,
+                fillColor: _AddProductSheetState._fieldBackground,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                labelStyle: const TextStyle(
+                  fontSize: 12,
+                  color: _AddProductSheetState._muted,
+                  fontWeight: FontWeight.w500,
+                ),
+                floatingLabelStyle: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.deepNavy,
+                  fontWeight: FontWeight.w600,
+                ),
+                hintStyle: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w400,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _AddProductSheetState._border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _AddProductSheetState._border),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  borderSide: BorderSide(color: AppColors.deepNavy, width: 1.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(
+              fontSize: 12,
+              color: _AddProductSheetState._muted,
+            ),
+          ),
+        ),
+        FilledButton(
+          style: orangeButton().copyWith(
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          onPressed: () {
+            final val = _catController.text.trim();
+            Navigator.pop(context, val);
+          },
+          child: const Text(
+            'Add category',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 

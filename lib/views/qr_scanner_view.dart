@@ -14,8 +14,8 @@ class QrScannerView extends StatefulWidget {
     this.onProductScanned,
     this.onRawCodeScanned,
     this.initialAmount = 999,
-    this.companyName = 'Ayesha Footwear',
-    this.upiId = 'atiqullahkhan554@okicici',
+    this.companyName = 'Footwear Store',
+    this.upiId = '',
   });
 
   final List<Product> products;

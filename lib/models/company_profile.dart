@@ -42,10 +42,10 @@ class CompanyProfile {
 
     return CompanyProfile(
       id: (map['id'] ?? defaultId ?? '') as String,
-      name: (map['name'] ?? map['companyName'] ?? 'Ayesha Footwear') as String,
+      name: (map['name'] ?? map['companyName'] ?? 'Footwear Store') as String,
       ownerUid: (map['ownerUid'] ?? map['owner_uid'] ?? '') as String,
       mobile: (map['mobile'] ?? '') as String,
-      upiId: (map['upiId'] ?? map['upi_id'] ?? 'atiqullahkhan554@okicici') as String,
+      upiId: (map['upiId'] ?? map['upi_id'] ?? '') as String,
       createdAt: parsedCreatedAt,
       address: (map['address'] ?? '') as String,
     );

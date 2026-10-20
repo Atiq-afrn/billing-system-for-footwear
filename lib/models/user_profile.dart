@@ -42,7 +42,7 @@ class UserProfile {
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> map, {String? defaultUid}) {
-    final cName = (map['companyName'] ?? map['company_name'] ?? 'Ayesha Footwear') as String;
+    final cName = (map['companyName'] ?? map['company_name'] ?? 'Footwear Store') as String;
     final cId = (map['companyId'] ?? map['company_id'] ?? '') as String;
     List<String> owned = [];
     if (map['ownedCompanyIds'] is List) {
@@ -55,7 +55,7 @@ class UserProfile {
       mobile: (map['mobile'] ?? '') as String,
       email: (map['email'] ?? '') as String,
       companyName: cName,
-      upiId: (map['upiId'] ?? map['upi_id'] ?? 'atiqullahkhan554@okicici') as String,
+      upiId: (map['upiId'] ?? map['upi_id'] ?? '') as String,
       createdAt: DateTime.tryParse((map['createdAt'] ?? '') as String) ?? DateTime.now(),
       companyId: cId,
       ownedCompanyIds: owned,

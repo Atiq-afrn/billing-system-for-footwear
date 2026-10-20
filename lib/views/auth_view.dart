@@ -5,17 +5,28 @@ import '../app/app_colors.dart';
 import '../services/auth_service.dart';
 
 class AuthView extends StatefulWidget {
-  const AuthView({super.key, required this.onAuthSuccess});
+  const AuthView({
+    super.key,
+    required this.onAuthSuccess,
+    this.initialLoginMode = true,
+  });
   final VoidCallback onAuthSuccess;
+  final bool initialLoginMode;
 
   @override
   State<AuthView> createState() => _AuthViewState();
 }
 
 class _AuthViewState extends State<AuthView> {
-  bool isLoginMode = true;
+  late bool isLoginMode;
   bool isLoading = false;
   bool obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    isLoginMode = widget.initialLoginMode;
+  }
 
   // Login controllers
   final loginEmailController = TextEditingController();
@@ -27,8 +38,8 @@ class _AuthViewState extends State<AuthView> {
   final regMobileController = TextEditingController();
   final regEmailController = TextEditingController();
   final regPasswordController = TextEditingController();
-  final regCompanyController = TextEditingController(text: 'Ayesha Footwear');
-  final regUpiController = TextEditingController(text: 'atiqullahkhan554@okicici');
+  final regCompanyController = TextEditingController();
+  final regUpiController = TextEditingController();
   final regFormKey = GlobalKey<FormState>();
 
   @override
@@ -321,17 +332,17 @@ class _AuthViewState extends State<AuthView> {
 
                     // App Brand Name
                     const Text(
-                      'AYESHA FOOTWEAR',
+                      'FOOTWEAR POS',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
+                        letterSpacing: 2.0,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Multi-Company Retail POS & Billing System',
+                      'Multi-Store Retail POS & Cloud Billing System',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.7),
                         fontSize: 13,
@@ -628,7 +639,7 @@ class _AuthViewState extends State<AuthView> {
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Company Name is required' : null,
             decoration: _inputDecoration(
               label: 'Company Name *',
-              hint: 'e.g. Ayesha Footwear',
+              hint: 'e.g. Metro Footwear, Royal Shoes',
               icon: Icons.storefront_outlined,
             ),
           ),
@@ -645,7 +656,7 @@ class _AuthViewState extends State<AuthView> {
             },
             decoration: _inputDecoration(
               label: 'Email Address *',
-              hint: 'e.g. owner@ayeshafootwear.com',
+              hint: 'e.g. owner@mystore.com',
               icon: Icons.email_outlined,
             ),
           ),
@@ -703,7 +714,7 @@ class _AuthViewState extends State<AuthView> {
             },
             decoration: _inputDecoration(
               label: 'UPI ID (for QR billing) *',
-              hint: 'e.g. atiqullahkhan554@okicici',
+              hint: 'e.g. yourstore@okicici',
               icon: Icons.qr_code_2,
             ),
           ),
@@ -714,7 +725,7 @@ class _AuthViewState extends State<AuthView> {
             controller: regNameController,
             decoration: _inputDecoration(
               label: 'Owner Full Name (Optional)',
-              hint: 'e.g. Atiqu Khan',
+              hint: 'e.g. Shop Owner / Manager',
               icon: Icons.person_outline,
             ),
           ),

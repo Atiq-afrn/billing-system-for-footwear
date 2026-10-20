@@ -932,8 +932,9 @@ required this.products,
 required this.onAddProduct,
 this.unreadAlertsCount = 0,
 this.onStockAlerts,
-this.companyName = 'Ayesha Footwear',
+this.companyName = 'Footwear Store',
 this.onCreateBillWithProduct,
+this.onDeleteProduct,
 });
 
 final List<Product> products;
@@ -942,6 +943,7 @@ final int unreadAlertsCount;
 final VoidCallback? onStockAlerts;
 final String companyName;
 final ValueChanged<Product>? onCreateBillWithProduct;
+final Future<void> Function(Product product)? onDeleteProduct;
 
 @override
 State<ProductsView> createState() => _ProductsViewState();
@@ -971,7 +973,9 @@ context,
 MaterialPageRoute(
 builder: (_) => ProductDetailsView(
 product: product,
+companyName: widget.companyName,
 onCreateBillWithProduct: widget.onCreateBillWithProduct,
+onDeleteProduct: widget.onDeleteProduct,
 ),
 ),
 );

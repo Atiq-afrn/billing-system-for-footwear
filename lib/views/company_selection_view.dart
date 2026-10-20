@@ -109,8 +109,8 @@ class _CompanySelectionViewState extends State<CompanySelectionView> {
                   controller: nameCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Company / Store Name *',
-                    hintText: 'e.g. Ayesha Footwear Branch 2',
-                    border: OutlineInputBorder(),
+                    hintText: 'e.g. City Branch, Downtown Store',
+                    border: const OutlineInputBorder(),
                     prefixIcon: Icon(Icons.store),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter company name' : null,

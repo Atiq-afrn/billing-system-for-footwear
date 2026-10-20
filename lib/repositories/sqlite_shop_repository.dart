@@ -109,6 +109,17 @@ class SqliteShopRepository implements ShopRepository {
   }
 
   @override
+  Future<void> deleteProduct(String productId) async {
+    final db = await _databaseService.database;
+    await db.delete(
+      'products',
+      where: 'id = ? AND ${_whereCompany()}',
+      whereArgs: [productId, _currentCompanyId],
+    );
+    await CloudSyncService.instance.deleteProduct(_currentCompanyId, productId);
+  }
+
+  @override
   Future<void> updateProductStock(String productId, int newStock) async {
     final db = await _databaseService.database;
     final productRows = await db.query(

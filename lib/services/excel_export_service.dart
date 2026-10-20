@@ -13,7 +13,7 @@ class ExcelExportService {
     required List<Customer> customers,
     required List<Product> products,
     required List<Bill> bills,
-    String companyName = 'Ayesha Footwear',
+    String companyName = 'Footwear Store',
   }) async {
     final excel = Excel.createExcel();
     excel.rename('Sheet1', 'Customers');
@@ -101,7 +101,7 @@ class ExcelExportService {
   Future<String> exportMonthlyBills({
     required List<Bill> bills,
     required DateTime month,
-    String companyName = 'Ayesha Footwear',
+    String companyName = 'Footwear Store',
   }) async {
     final excel = Excel.createExcel();
     final monthName = _monthNames[month.month - 1];

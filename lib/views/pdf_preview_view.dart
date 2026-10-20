@@ -33,7 +33,7 @@ class PdfPreviewView extends StatelessWidget {
     if (profile != null && profile.trim().isNotEmpty) {
       return profile.trim();
     }
-    return 'Ayesha Footwear';
+    return 'Footwear Store';
   }
 
   String? _resolveAddress() {

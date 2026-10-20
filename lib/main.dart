@@ -8,6 +8,7 @@ import 'services/cloud_sync_service.dart';
 import 'services/database_service.dart';
 import 'services/excel_export_service.dart';
 import 'view_models/shop_view_model.dart';
+import 'views/app_splash_view.dart';
 import 'views/auth_view.dart';
 import 'views/company_selection_view.dart';
 import 'views/shop_shell.dart';
@@ -32,6 +33,7 @@ class AyeshaFootwearApp extends StatefulWidget {
 
 class _AyeshaFootwearAppState extends State<AyeshaFootwearApp> {
   late final ShopViewModel viewModel;
+  bool _startInRegisterMode = false;
 
   @override
   void initState() {
@@ -63,14 +65,29 @@ class _AyeshaFootwearAppState extends State<AyeshaFootwearApp> {
         final authService = AuthService.instance;
         final isAuth = authService.isAuthenticated;
         final hasActiveCompany = authService.activeCompany != null;
+        final hasCompletedSplash = authService.hasCompletedSplash;
 
         Widget homeWidget;
         if (!isAuth) {
-          homeWidget = AuthView(
-            onAuthSuccess: () async {
-              await viewModel.onUserAuthenticated();
-            },
-          );
+          if (!hasCompletedSplash) {
+            homeWidget = AppSplashView(
+              onGetStarted: () async {
+                setState(() => _startInRegisterMode = true);
+                await authService.completeSplash();
+              },
+              onSignIn: () async {
+                setState(() => _startInRegisterMode = false);
+                await authService.completeSplash();
+              },
+            );
+          } else {
+            homeWidget = AuthView(
+              initialLoginMode: !_startInRegisterMode,
+              onAuthSuccess: () async {
+                await viewModel.onUserAuthenticated();
+              },
+            );
+          }
         } else if (!hasActiveCompany) {
           homeWidget = CompanySelectionView(
             viewModel: viewModel,

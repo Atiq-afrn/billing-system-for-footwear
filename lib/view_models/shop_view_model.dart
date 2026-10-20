@@ -122,13 +122,13 @@ class ShopViewModel extends ChangeNotifier {
       AuthService.instance.activeCompany?.name ??
       (userProfile != null && userProfile!.companyName.trim().isNotEmpty
           ? userProfile!.companyName.trim()
-          : 'Ayesha Footwear');
+          : 'Footwear Store');
 
   String get upiId =>
       AuthService.instance.activeCompany?.upiId ??
       (userProfile != null && userProfile!.upiId.trim().isNotEmpty
           ? userProfile!.upiId.trim()
-          : 'atiqullahkhan554@okicici');
+          : '');
 
   String get companyId => AuthService.instance.activeCompanyId;
 
@@ -834,6 +834,13 @@ class ShopViewModel extends ChangeNotifier {
 
   Future<void> addProduct(ProductDraft draft) async {
     await _repository.saveProduct(draft);
+    products = await _repository.fetchProducts();
+    stockMovements = await _repository.fetchStockMovements();
+    notifyListeners();
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    await _repository.deleteProduct(productId);
     products = await _repository.fetchProducts();
     stockMovements = await _repository.fetchStockMovements();
     notifyListeners();

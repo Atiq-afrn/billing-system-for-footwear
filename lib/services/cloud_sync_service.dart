@@ -89,6 +89,22 @@ class CloudSyncService extends ChangeNotifier {
     });
   }
 
+  Future<void> deleteProduct(String companyId, String productId) async {
+    final cleanId = productId.trim();
+    if (cleanId.isEmpty) return;
+    try {
+      final doc = _companyDoc(companyId)?.collection('products').doc(cleanId);
+      if (doc != null) {
+        await doc.delete().timeout(_cloudTimeout);
+      }
+      _status = CloudSyncStatus.synced;
+      _lastSyncedAt = DateTime.now();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[CloudSync] deleteProduct notice: $e');
+    }
+  }
+
   void pushBill(String companyId, Bill bill) {
     _safeBackgroundPush(() async {
       final map = Map<String, dynamic>.from(bill.toMap());
